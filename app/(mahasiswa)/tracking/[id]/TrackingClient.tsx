@@ -5,21 +5,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cancelTicket, confirmTicketClosed, reopenTicket, type TicketDetail } from "@/app/actions/ticketActions";
 import { getTicketStatusColor } from "@/lib/utils";
+import StatusTimeline from "@/app/components/StatusTimeline";
 
 // ============================================================
 // Helpers
 // ============================================================
-function formatWaktu(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function formatWaktuShort(iso: string) {
   const d = new Date(iso);
@@ -32,71 +22,6 @@ function formatWaktuShort(iso: string) {
   });
 }
 
-function statusConfig(status: string) {
-  switch (status) {
-    case "Masuk":
-      return {
-        color: "bg-amber-500",
-        ring: "ring-amber-500/20",
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        ),
-      };
-    case "Diproses":
-      return {
-        color: "bg-blue-500",
-        ring: "ring-blue-500/20",
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
-          </svg>
-        ),
-      };
-    case "Selesai":
-      return {
-        color: "bg-emerald-500",
-        ring: "ring-emerald-500/20",
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-        ),
-      };
-    case "Ditolak":
-    case "Dibatalkan": // Styling yang persis sama merah
-      return {
-        color: "bg-red-500",
-        ring: "ring-red-500/20",
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        ),
-      };
-    case "Dikonfirmasi":
-      return {
-        color: "bg-slate-600",
-        ring: "ring-slate-500/20",
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-          </svg>
-        ),
-      };
-    default:
-      return {
-        color: "bg-slate-500",
-        ring: "ring-slate-500/20",
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-          </svg>
-        ),
-      };
-  }
-}
 
 // ============================================================
 // Main Component
@@ -114,8 +39,6 @@ export default function TrackingClient({ ticket }: { ticket: TicketDetail }) {
 
   // Status saat ini diambil dari field status langsung (arsitektur baru)
   const currentStatus = ticket.status || "Tidak diketahui";
-
-  const currentConfig = statusConfig(currentStatus);
 
   // Render detail laporan dari formSnapshot × dynamicData (Point-in-Time Snapshot)
   const snapshotEntries = (ticket.formSnapshot || []).map((field) => ({
@@ -307,47 +230,7 @@ export default function TrackingClient({ ticket }: { ticket: TicketDetail }) {
           </div>
 
           <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-6 sm:p-8">
-            <div className="relative pl-2">
-              {ticket.statusHistory.map((entry, index) => {
-                const config = statusConfig(entry.status);
-                const isFirst = index === 0;
-                const isLast = index === ticket.statusHistory.length - 1;
-
-                return (
-                  <div key={index} className="relative flex gap-5">
-                    {/* Vertical Line + Dot */}
-                    <div className="flex flex-col items-center">
-                      <div className={`relative z-10 flex items-center justify-center w-8 h-8 rounded-full ${config.color} ring-4 ${config.ring} shadow-sm`}>
-                        {config.icon}
-                      </div>
-                      {!isLast && <div className="w-0.5 flex-1 min-h-[40px] bg-slate-200 my-1.5" />}
-                    </div>
-
-                    <div className={`flex-1 pb-8 ${isLast ? "pb-0" : ""}`}>
-                      <div className={`rounded-2xl p-4 transition-all duration-200 ${isLast ? "bg-white border border-slate-200 shadow-md ring-1 ring-slate-100/50" : "hover:bg-slate-50 border border-transparent hover:border-slate-100"}`}>
-                        <p className="text-[10px] font-bold text-slate-400 mb-1 tracking-wide">{formatWaktu(entry.timestamp)}</p>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <h3 className="text-sm font-bold text-slate-800">{entry.status}</h3>
-                          {isLast && <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-campus-primary border border-blue-200 text-[9px] font-black uppercase tracking-widest shadow-sm">Terkini</span>}
-                          {isFirst && !isLast && <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 text-[9px] font-black uppercase tracking-widest shadow-sm">Awal</span>}
-                        </div>
-                        <p className="text-[11px] text-slate-500">
-                          <span className="text-slate-400 font-medium">Oleh:</span> <span className="text-slate-700 font-bold">{entry.actor}</span>
-                        </p>
-                        {entry.note && (
-                          <div className="mt-3 flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 shadow-inner">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
-                            </svg>
-                            <p className="text-[12px] text-slate-600 font-medium italic leading-relaxed">{entry.note}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <StatusTimeline history={ticket.statusHistory} />
           </div>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useCallback } from "react";
 import { loginUser } from "@/app/actions/authActions";
-import { submitPublicTicket, type PublicFeedItem, trackPublicTicket } from "@/app/actions/publicActions";
+import { submitPublicTicket, type PublicFeedItem, trackPublicTicket, guestConfirmTicketClosed, guestReopenTicket } from "@/app/actions/publicActions";
 
 // ─── Helpers ────────────────────────────────────────────────
 function formatTanggal(iso: string) {
@@ -57,6 +57,11 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
   const [trackError, setTrackError] = useState("");
   const [showTrackModal, setShowTrackModal] = useState(false);
 
+  // Guest Resolution State
+  const [showGuestComplaint, setShowGuestComplaint] = useState(false);
+  const [guestComplaintNote, setGuestComplaintNote] = useState("");
+  const [isGuestActionPending, startGuestAction] = useTransition();
+
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoginError(null);
@@ -108,9 +113,42 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
       const res = await trackPublicTicket(trackId, trackPin);
       if (res.error) {
         setTrackError(res.error);
-      } else if (res.success && res.ticket) {
+      } else {
         setTrackResult(res.ticket);
         setShowTrackModal(true);
+        setShowGuestComplaint(false);
+        setGuestComplaintNote("");
+      }
+    });
+  }
+
+  function handleGuestAccept() {
+    if (!trackResult) return;
+    startGuestAction(async () => {
+      const res = await guestConfirmTicketClosed(trackId, trackPin);
+      if (res.error) alert(res.error);
+      else {
+        alert(res.message);
+        // Refresh track result locally
+        const freshRes = await trackPublicTicket(trackId, trackPin);
+        if (!freshRes.error) setTrackResult(freshRes.ticket);
+      }
+    });
+  }
+
+  function handleGuestComplain(e: React.FormEvent) {
+    e.preventDefault();
+    if (!trackResult || !guestComplaintNote.trim()) return;
+    startGuestAction(async () => {
+      const res = await guestReopenTicket(trackId, trackPin, guestComplaintNote);
+      if (res.error) alert(res.error);
+      else {
+        alert(res.message);
+        setShowGuestComplaint(false);
+        setGuestComplaintNote("");
+        // Refresh track result locally
+        const freshRes = await trackPublicTicket(trackId, trackPin);
+        if (!freshRes.error) setTrackResult(freshRes.ticket);
       }
     });
   }
@@ -641,11 +679,67 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
                   })}
                 </div>
               </div>
+
+              {/* Aksi Resolusi Tamu */}
+              {trackResult.status === "Selesai" && (
+                <div className="bg-white border-2 border-emerald-100 rounded-2xl p-5 space-y-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">Verifikasi Resolusi</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">Pengajuan Anda telah selesai diproses oleh tim kami. Harap konfirmasi apakah hasil perbaikan sudah sesuai.</p>
+                  </div>
+
+                  {!showGuestComplaint ? (
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={handleGuestAccept}
+                        disabled={isGuestActionPending}
+                        className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all disabled:opacity-50"
+                      >
+                        {isGuestActionPending ? "Memproses..." : "Ya, Saya Terima (Tutup Laporan)"}
+                      </button>
+                      <button
+                        onClick={() => setShowGuestComplaint(true)}
+                        disabled={isGuestActionPending}
+                        className="flex-1 px-4 py-2.5 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 text-sm font-bold rounded-xl transition-all disabled:opacity-50"
+                      >
+                        Komplain & Kembalikan
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleGuestComplain} className="space-y-3 bg-rose-50/50 p-4 rounded-xl border border-rose-100 mt-2">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+                        Alasan Komplain <span className="text-rose-500">*</span>
+                      </label>
+                      <textarea
+                        value={guestComplaintNote}
+                        onChange={(e) => setGuestComplaintNote(e.target.value)}
+                        placeholder="Jelaskan mengapa laporan Anda dikembalikan..."
+                        rows={3}
+                        className="w-full text-sm p-3 rounded-xl border border-slate-200 shadow-inner focus:outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-400 font-medium"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button type="button" onClick={() => setShowGuestComplaint(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition">
+                          Batal
+                        </button>
+                        <button type="submit" disabled={isGuestActionPending || !guestComplaintNote.trim()} className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition shadow-md disabled:opacity-50 flex items-center gap-2">
+                          Kirim Komplain
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
             </div>
             
             {/* Footer */}
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 text-center">
-              <button onClick={() => setShowTrackModal(false)} className="w-full btn-primary bg-slate-800 hover:bg-slate-900 py-2.5">
+              <button 
+                onClick={() => {
+                  setShowTrackModal(false);
+                  setShowGuestComplaint(false);
+                }} 
+                className="w-full btn-primary bg-slate-800 hover:bg-slate-900 py-2.5"
+              >
                 Tutup Pelacakan
               </button>
             </div>

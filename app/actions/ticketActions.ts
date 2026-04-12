@@ -9,6 +9,30 @@ import Ticket from "@/models/Ticket";
 import mongoose from "mongoose";
 
 // ============================================================
+// AUTO-CLOSE SLA (Lazy Evaluation)
+// Menutup tiket "Selesai" jika sudah tidak ada respons selama > 72 jam
+// ============================================================
+async function applyAutoCloseSLA() {
+  const threeDaysAgo = new Date();
+  threeDaysAgo.setHours(threeDaysAgo.getHours() - 72);
+
+  await Ticket.updateMany(
+    { status: "Selesai", updatedAt: { $lt: threeDaysAgo } },
+    {
+      $set: { status: "Ditutup" },
+      $push: {
+        statusHistory: {
+          status: "Ditutup",
+          timestamp: new Date(),
+          actor: "sistem",
+          note: "Ditutup otomatis oleh sistem karena tidak ada respons.",
+        },
+      },
+    }
+  );
+}
+
+// ============================================================
 // Generator: Custom Ticket ID Format Enterprise
 // Format: TKT-YYMMDD-XXXX (contoh: TKT-260411-A8B2)
 // ============================================================
@@ -263,6 +287,7 @@ export async function getTicketsByDepartment(
   departmentId: string
 ): Promise<TicketRow[]> {
   await dbConnect();
+  await applyAutoCloseSLA();
 
   const tickets = await Ticket.find({ departmentId })
     .populate("serviceId", "namaLayanan")  // join service name
@@ -277,6 +302,7 @@ export async function getTicketsByDepartment(
 // ============================================================
 export async function getAllTickets(): Promise<TicketRow[]> {
   await dbConnect();
+  await applyAutoCloseSLA();
 
   const tickets = await Ticket.find({})
     .populate("serviceId", "namaLayanan")
@@ -296,6 +322,7 @@ export async function getMyTickets(): Promise<TicketRow[]> {
 
   const session = JSON.parse(sessionCookie.value) as { nim_nip: string };
   await dbConnect();
+  await applyAutoCloseSLA();
 
   const tickets = await Ticket.find({ mahasiswaId: session.nim_nip })
     .populate("serviceId", "namaLayanan")
@@ -433,10 +460,10 @@ export async function confirmTicketClosed(ticketId: string) {
     const result = await Ticket.findByIdAndUpdate(
       ticketId,
       {
-        $set: { status: "Dikonfirmasi" },
+        $set: { status: "Ditutup" },
         $push: {
           statusHistory: {
-            status: "Dikonfirmasi",
+            status: "Ditutup",
             timestamp: new Date(),
             actor: "Mahasiswa",
             note: "Laporan telah diverifikasi dan ditutup oleh pelapor.",
@@ -514,10 +541,10 @@ export async function reopenTicket(ticketId: string, complaintNote: string) {
     }
 
     await Ticket.findByIdAndUpdate(ticketId, {
-      $set: { status: "Masuk" },
+      $set: { status: "Komplain" },
       $push: {
         statusHistory: {
-          status: "Masuk",
+          status: "Komplain",
           timestamp: new Date(),
           actor: "Mahasiswa",
           note: `[Komplain] ${complaintNote}`,

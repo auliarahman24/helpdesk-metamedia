@@ -249,6 +249,70 @@ export async function trackPublicTicket(ticketId: string, guestPin: string) {
     };
   } catch (error) {
     console.error("[publicActions] trackPublicTicket error:", error);
-    return { error: "Terjadi kesalahan sistem saat melacak tiket." };
+    return { error: "Terjadi kesalahan server saat melacak tiket." };
+  }
+}
+
+// ============================================================
+// 4. guestConfirmTicketClosed()
+//    Menutup tiket tamu ketika mereka menekan Terima Resolusi
+// ============================================================
+export async function guestConfirmTicketClosed(ticketId: string, guestPin: string) {
+  try {
+    await dbConnect();
+    const result = await Ticket.findOneAndUpdate(
+      { ticketId: ticketId.trim(), guestPin: guestPin.trim(), isGuest: true, status: "Selesai" },
+      {
+        $set: { status: "Ditutup" },
+        $push: {
+          statusHistory: {
+            status: "Ditutup",
+            timestamp: new Date(),
+            actor: "Tamu Publik",
+            note: "Laporan telah diverifikasi dan ditutup oleh tamu pelapor.",
+          },
+        },
+      },
+      { returnDocument: "after" }
+    );
+
+    if (!result) return { error: "Tiket tidak ditemukan, PIN salah, atau status tidak valid." };
+    return { success: true, message: "Resolusi diterima. Tiket berhasil ditutup." };
+  } catch (error) {
+    console.error("Guest confirm ticket closed error:", error);
+    return { error: "Terjadi kesalahan server." };
+  }
+}
+
+// ============================================================
+// 5. guestReopenTicket()
+//    Mengirim status komplain dengan PIN tamu
+// ============================================================
+export async function guestReopenTicket(ticketId: string, guestPin: string, complaintNote: string) {
+  try {
+    if (!complaintNote.trim()) return { error: "Alasan komplain wajib diisi." };
+
+    await dbConnect();
+    const result = await Ticket.findOneAndUpdate(
+      { ticketId: ticketId.trim(), guestPin: guestPin.trim(), isGuest: true, status: "Selesai" },
+      {
+        $set: { status: "Komplain" },
+        $push: {
+          statusHistory: {
+            status: "Komplain",
+            timestamp: new Date(),
+            actor: "Tamu Publik",
+            note: `[Komplain] ${complaintNote}`,
+          },
+        },
+      },
+      { returnDocument: "after" }
+    );
+
+    if (!result) return { error: "Tiket tidak ditemukan, PIN salah, atau tiket tidak sedang berstatus Selesai." };
+    return { success: true, message: "Komplain dikirim. Laporan akan diproses kembali." };
+  } catch (error) {
+    console.error("Guest reopen ticket error:", error);
+    return { error: "Terjadi kesalahan server." };
   }
 }

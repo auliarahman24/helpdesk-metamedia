@@ -4,6 +4,7 @@ import { useState, useCallback, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { TicketRow } from "@/app/actions/ticketActions";
 import { getTicketStatusColor } from "@/lib/utils";
+import StatusTimeline from "@/app/components/StatusTimeline";
 
 // ─── Helpers ────────────────────────────────────────────────
 function formatTanggal(iso: string) {
@@ -12,25 +13,8 @@ function formatTanggal(iso: string) {
     hour: "2-digit", minute: "2-digit",
   });
 }
-function formatWaktu(iso: string) {
-  return new Date(iso).toLocaleDateString("id-ID", {
-    weekday: "long", day: "numeric", month: "long", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
 
 const STATUS_OPTIONS = ["Masuk", "Diproses", "Selesai", "Pending Verifikasi", "Dibatalkan"] as const;
-
-function statusConfig(status: string) {
-  switch (status) {
-    case "Masuk":             return { color: "bg-amber-500",   ring: "ring-amber-500/20",   icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> };
-    case "Diproses":          return { color: "bg-blue-500",    ring: "ring-blue-500/20",    icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" /></svg> };
-    case "Selesai":           return { color: "bg-emerald-500", ring: "ring-emerald-500/20", icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> };
-    case "Pending Verifikasi":return { color: "bg-purple-500",  ring: "ring-purple-500/20",  icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> };
-    case "Dibatalkan":        return { color: "bg-red-500",     ring: "ring-red-500/20",     icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> };
-    default:                  return { color: "bg-slate-500",   ring: "ring-slate-500/20",   icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg> };
-  }
-}
 
 // Status badge — light bg, dark text
 function StatusBadge({ status }: { status: string }) {
@@ -471,45 +455,7 @@ export default function MonitoringClient({
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
                     Riwayat Tracking
                   </h4>
-                  <div className="relative pl-3">
-                    {selectedTicket.statusHistory.map((entry, index) => {
-                      const config = statusConfig(entry.status);
-                      const isLast = index === selectedTicket.statusHistory.length - 1;
-                      return (
-                        <div key={index} className="relative flex gap-5">
-                          <div className="flex flex-col items-center">
-                            <div className={`relative z-10 flex items-center justify-center w-8 h-8 rounded-full ${config.color} ring-4 ${config.ring} shadow-md`}>
-                              {config.icon}
-                            </div>
-                            {!isLast && <div className="w-0.5 flex-1 min-h-[36px] bg-slate-200 my-1.5 rounded-full" />}
-                          </div>
-                          <div className={`flex-1 pb-7 ${isLast ? "pb-0" : ""}`}>
-                            <div className={`rounded-2xl p-4 transition-all duration-200 ${isLast ? "bg-white border border-slate-200 shadow-md ring-1 ring-slate-100/50" : "bg-transparent border border-transparent hover:bg-white hover:border-slate-100 hover:shadow-sm"}`}>
-                              <p className="text-[10px] font-bold text-slate-400 mb-1.5 tracking-wide">{formatWaktu(entry.timestamp)}</p>
-                              <div className="flex items-center gap-2.5 mb-1.5">
-                                <h3 className="text-sm font-bold text-slate-800">{entry.status}</h3>
-                                {isLast && (
-                                  <span className="inline-flex px-2 py-0.5 rounded-md bg-blue-50 text-campus-primary border border-blue-200 text-[9px] font-black uppercase tracking-widest shadow-sm">Status Saat Ini</span>
-                                )}
-                              </div>
-                              <p className="text-[11px] text-slate-500 mb-2">
-                                <span className="text-slate-400 font-medium">Oleh:</span>{" "}
-                                <span className="text-slate-700 font-semibold">{entry.actor}</span>
-                              </p>
-                              {entry.note && (
-                                <div className="flex items-start gap-2.5 bg-slate-50 border border-slate-200 rounded-xl p-3 mt-3">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
-                                  </svg>
-                                  <p className="text-[12px] text-slate-600 font-medium italic leading-relaxed">{entry.note}</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <StatusTimeline history={selectedTicket.statusHistory} compact={true} />
                 </div>
               </div>
             </div>

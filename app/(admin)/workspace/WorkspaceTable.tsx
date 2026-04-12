@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updateTicketStatus, type TicketRow } from "@/app/actions/ticketActions";
 import { getTicketStatusColor } from "@/lib/utils";
+import StatusTimeline from "@/app/components/StatusTimeline";
 
 function formatTanggal(iso: string) {
   return new Date(iso).toLocaleDateString("id-ID", {
@@ -20,6 +21,22 @@ function PrioritasBadge({ prioritas }: { prioritas: string }) {
   };
   const badgeClass = cls[prioritas] || cls["Sedang"];
   return <span className={`inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border shadow-sm ${badgeClass}`}>{prioritas}</span>;
+}
+
+
+
+function getAvailableNextStatuses(currentStatus: string): string[] {
+  if (currentStatus === "Masuk" || currentStatus === "Komplain") {
+    return ["Diproses", "Tertunda", "Ditolak"];
+  }
+  if (currentStatus === "Diproses") {
+    return ["Selesai", "Tertunda", "Ditolak"];
+  }
+  if (currentStatus === "Tertunda") {
+    return ["Diproses", "Selesai", "Ditolak"];
+  }
+  // Default fallback if unknown
+  return ["Diproses", "Tertunda", "Selesai", "Ditolak"];
 }
 
 interface WorkspaceTableProps { tickets: TicketRow[]; adminNama: string; }
@@ -42,6 +59,10 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
 
   function handleUpdate() {
     if (!selectedTicket) return;
+    if (statusBaru === "Ditolak" && !catatan.trim()) {
+      setResult({ type: "error", message: "Alasan penolakan wajib diisi!" });
+      return;
+    }
     startTransition(async () => {
       const res = await updateTicketStatus(selectedTicket._id, statusBaru, catatan, adminNama);
       if (res.error) {
@@ -60,9 +81,10 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
     });
   }
 
-  const isLocked      = selectedTicket?.statusTerkini === "Selesai" || selectedTicket?.statusTerkini === "Dikonfirmasi";
+  const isLocked       = selectedTicket?.statusTerkini === "Selesai" || selectedTicket?.statusTerkini === "Dikonfirmasi";
+  const isTerminal     = selectedTicket?.statusTerkini === "Ditolak" || selectedTicket?.statusTerkini === "Ditutup";
   const isProgressOnly = selectedTicket ? statusBaru === selectedTicket.statusTerkini : false;
-  const isNoteRequired = isProgressOnly || statusBaru === "Tertunda";
+  const isNoteRequired = isProgressOnly || statusBaru === "Tertunda" || statusBaru === "Ditolak";
   const isUpdateDisabled = isPending || (isNoteRequired && !catatan.trim());
   const btnText        = isProgressOnly ? "Tambah Catatan Progres" : "Ubah Status Pengajuan";
 
@@ -226,23 +248,8 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
                     {selectedTicket.statusHistory.length} Entri
                   </span>
                 </h3>
-                <div className="bg-slate-50/50 border border-slate-200/80 rounded-2xl p-5">
-                  {selectedTicket.statusHistory.map((h, idx) => (
-                    <div key={idx} className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-1.5 ${idx === selectedTicket.statusHistory.length - 1 ? "bg-emerald-500 ring-4 ring-emerald-500/20" : "bg-slate-300"}`} />
-                        {idx < selectedTicket.statusHistory.length - 1 && <div className="w-px flex-1 bg-slate-200 my-1.5" />}
-                      </div>
-                      <div className={`pb-5 ${idx === selectedTicket.statusHistory.length - 1 ? "pb-0" : ""}`}>
-                        <div className="flex items-center gap-2.5">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getTicketStatusColor(h.status)}`}>{h.status}</span>
-                          <span className="text-[11px] font-bold text-slate-400">{formatTanggal(h.timestamp)}</span>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">oleh <span className="text-slate-800 font-bold">{h.actor}</span></p>
-                        {h.note && <div className="mt-1.5 px-3 py-2 bg-white border border-slate-200 rounded-lg shadow-sm text-xs text-slate-600 font-medium italic">"{h.note}"</div>}
-                      </div>
-                    </div>
-                  ))}
+                <div className="pt-2">
+                  <StatusTimeline history={selectedTicket.statusHistory} compact={true} />
                 </div>
               </div>
 
@@ -274,13 +281,13 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
                           id="statusBaru"
                           value={statusBaru}
                           onChange={(e) => setStatusBaru(e.target.value)}
-                          className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none transition-all duration-200 appearance-none cursor-pointer focus:bg-white focus:border-campus-primary focus:ring-4 focus:ring-campus-primary/10 shadow-sm"
+                          disabled={isTerminal}
+                          className={`w-full pl-4 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm font-medium outline-none transition-all duration-200 appearance-none focus:bg-white focus:border-campus-primary focus:ring-4 focus:ring-campus-primary/10 shadow-sm ${isTerminal ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "bg-white cursor-pointer"}`}
                         >
-                          <option value="Masuk" className="hidden">Masuk</option>
-                          <option value="Diproses">Diproses</option>
-                          <option value="Tertunda">Tertunda</option>
-                          <option value="Selesai">Selesai</option>
-                          <option value="Ditolak">Ditolak</option>
+                          <option value={selectedTicket.statusTerkini} className="hidden">{selectedTicket.statusTerkini}</option>
+                          {getAvailableNextStatuses(selectedTicket.statusTerkini).map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
                         </select>
                         <div className="absolute top-[10px] right-3 flex items-center pointer-events-none text-slate-400">
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
@@ -296,10 +303,19 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
                         rows={3}
                         value={catatan}
                         onChange={(e) => setCatatan(e.target.value)}
+                        disabled={isTerminal}
                         placeholder="Berikan bukti atau catatan terkait tindakan..."
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all duration-200 resize-none focus:border-campus-primary focus:ring-4 focus:ring-campus-primary/10 shadow-sm placeholder:text-slate-400 font-medium"
+                        className={`w-full px-4 py-3 border border-slate-200 rounded-xl text-sm outline-none transition-all duration-200 resize-none focus:border-campus-primary focus:ring-4 focus:ring-campus-primary/10 shadow-sm placeholder:text-slate-400 font-medium ${isTerminal ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "bg-white"}`}
                       />
                     </div>
+                    {isTerminal && (
+                       <p className="mt-2.5 text-[11px] font-bold text-rose-500 bg-rose-50 p-2.5 rounded-lg border border-rose-100 flex items-center gap-1.5">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                         </svg>
+                         Tiket ini telah mencapai status akhir dan tidak dapat diubah lagi.
+                       </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -319,9 +335,9 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
             {/* Footer */}
             <div className="flex items-center justify-end gap-3 px-6 py-5 border-t border-slate-200 shrink-0 bg-slate-50 rounded-b-3xl">
               <button onClick={closeModal} className="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-100 hover:border-slate-300 text-slate-600 font-bold rounded-xl text-sm transition-all shadow-sm cursor-pointer">
-                {isLocked ? "Tutup" : "Batal"}
+                {isLocked || isTerminal ? "Tutup" : "Batal"}
               </button>
-              {!isLocked && (
+              {!isLocked && !isTerminal && (
                 <button
                   id="btn-update-status"
                   onClick={handleUpdate}
