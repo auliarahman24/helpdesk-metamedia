@@ -47,15 +47,15 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={cls[status] ?? "badge badge-default"}>{status}</span>;
 }
 
-function PrioritasBadge({ prioritas }: { prioritas: string }) {
+function PrioritasBadge({ prioritas, className }: { prioritas: string, className?: string }) {
   const cls: Record<string, string> = {
-    "Rendah": "bg-emerald-100 text-emerald-700 border-emerald-200",
-    "Sedang": "bg-blue-100 text-blue-700 border-blue-200",
-    "Tinggi": "bg-orange-100 text-orange-700 border-orange-200",
-    "Kritis": "bg-red-100 text-red-700 border-red-200",
+    "Rendah": "bg-emerald-50 text-emerald-700 border-emerald-200",
+    "Sedang": "bg-blue-50 text-blue-700 border-blue-200",
+    "Tinggi": "bg-orange-50 text-orange-700 border-orange-200",
+    "Kritis": "bg-rose-50 text-rose-700 border-rose-200",
   };
-  const badgeClass = cls[prioritas] || cls["Sedang"];
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider ${badgeClass}`}>{prioritas}</span>;
+  const colorClass = cls[prioritas] || cls["Sedang"];
+  return <span className={`inline-flex items-center font-bold uppercase tracking-wider border ${className || "px-2.5 py-1 rounded-lg text-[11px]"} ${colorClass}`}>{prioritas}</span>;
 }
 
 // ─── Props ───────────────────────────────────────────────────
@@ -392,14 +392,14 @@ export default function MonitoringClient({
                 <div className="space-y-6">
                   {/* Badges */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 text-xs font-bold shadow-sm">
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 text-xs font-bold shadow-sm uppercase tracking-wider">
                       {selectedTicket.namaLayanan || selectedTicket.departmentId}
                     </span>
-                    <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold shadow-sm">
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold shadow-sm uppercase tracking-wider">
                       {selectedTicket.departmentId || "Umum"}
                     </span>
-                    <PrioritasBadge prioritas={selectedTicket.prioritas || "Sedang"} />
-                    <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold border shadow-sm ${getTicketStatusColor(selectedTicket.statusTerkini)}`}>
+                    <PrioritasBadge prioritas={selectedTicket.prioritas || "Sedang"} className="px-3 py-1.5 rounded-lg text-xs shadow-sm" />
+                    <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border shadow-sm ${getTicketStatusColor(selectedTicket.statusTerkini)}`}>
                       {selectedTicket.statusTerkini}
                     </span>
                   </div>

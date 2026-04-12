@@ -114,144 +114,67 @@ export async function seedDatabase() {
 
     const [svcBAAK, svcTeknisi, svcKebersihan, svcKeamanan] = services;
 
-    const today      = new Date();
-    const yesterday  = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-    const twoDaysAgo = new Date(today); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    const ticketsData = [];
+    const mahasiswaIds = ["22010001", "22010002", "22010003"];
+    const priorities = ["Rendah", "Sedang", "Tinggi", "Kritis"];
+    const statuses = ["Masuk", "Diproses", "Pending Verifikasi", "Tertunda", "Dikonfirmasi", "Ditolak", "Selesai", "Dibatalkan"];
+    
+    // Pemetaan data dinamis berdasarkan service
+    const serviceTemplates = {
+      "DEPT-KEAMANAN": {
+        dynamicData: { nama_barang: "Laptop Asus ROG Hitam", lokasi_terakhir: "Kantin Utama Area Timur", waktu_kejadian: "12:30 WIB", deskripsi: "Tertinggal setelah makan siang bareng teman." },
+      },
+      "DEPT-BAAK": {
+        dynamicData: { alasan: "Keperluan Pemberkasan CPNS 2026", jumlah_lembar: "4", tujuan_kirim: "Dikirim via Email" },
+      },
+      "DEPT-KEBERSIHAN": {
+        dynamicData: { area_ruangan: "Toilet Lantai 2 Gedung 3", tingkat_kotor: "Sangat Parah", catatan: "Air dari wastafel meluap dan membuat lantai sangat licin." },
+      },
+      "DEPT-TEKNISI": {
+        dynamicData: { nomor_ruangan: "Lab Jaringan Lt. 4", jenis_kerusakan: "Suara Tidak Keluar", deskripsi_kerusakan: "HDMI nyambung gambar bagus tapi suara hilang saat play video materi." },
+      }
+    };
 
-    await Ticket.insertMany([
-      // ── TIKET 1: MASUK — Lapor Barang Hilang ──
-      {
+    const servicesArr = [svcBAAK, svcTeknisi, svcKebersihan, svcKeamanan];
+
+    for (let i = 0; i < 50; i++) {
+      const generatedDate = new Date();
+      // mundur secara acak antara 0 hingga 45 hari
+      const delayHours = Math.floor(Math.random() * 24 * 45);
+      generatedDate.setHours(generatedDate.getHours() - delayHours);
+
+      const svc = servicesArr[Math.floor(Math.random() * servicesArr.length)];
+      const template = serviceTemplates[svc.departmentId as keyof typeof serviceTemplates];
+      
+      const mhsId = mahasiswaIds[Math.floor(Math.random() * mahasiswaIds.length)];
+      const prioritas = priorities[Math.floor(Math.random() * priorities.length)];
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+
+      const history = [{ status: "Masuk", timestamp: new Date(generatedDate.getTime() - 3600000 * 24), actor: "sistem", note: "Laporan berhasil dibuat otomatis oleh Seed Script." }];
+      if (status !== "Masuk") {
+        history.push({ status: status, timestamp: generatedDate, actor: `Admin ${svc.departmentId.split('-')[1]}`, note: "Diupdate secara otomatis via script bulk dummy." });
+      }
+
+      ticketsData.push({
         ticketId: generateTicketId(),
-        mahasiswaId: "22010001",
-        serviceId: new mongoose.Types.ObjectId(String(svcKeamanan._id)),
-        departmentId: "DEPT-KEAMANAN",
-        status: "Masuk",
-        dynamicData: {
-          nama_barang:     "Dompet Kulit Coklat",
-          lokasi_terakhir: "Perpustakaan Lt 2, Pojok Baca",
-          waktu_kejadian:  "Sekitar pukul 10:00 WIB",
-          deskripsi:       "Saya meninggalkan dompet warna coklat di meja pojok perpustakaan. Saat kembali sudah tidak ada.",
-        },
-        formSnapshot: svcKeamanan.formBuilder.map((f: any) => ({
+        mahasiswaId: mhsId,
+        serviceId: new mongoose.Types.ObjectId(String(svc._id)),
+        departmentId: svc.departmentId,
+        status: status,
+        prioritas: prioritas,
+        dynamicData: template.dynamicData,
+        formSnapshot: svc.formBuilder.map((f: any) => ({
           id: f.id, label: f.label, type: f.type, isRequired: f.isRequired,
           ...(f.options ? { options: f.options } : {}),
         })),
-        statusHistory: [
-          { status: "Masuk", timestamp: today, actor: "sistem", note: "Laporan berhasil dibuat." },
-        ],
-      },
+        statusHistory: history,
+        createdAt: new Date(generatedDate.getTime() - 3600000 * 24),
+        updatedAt: generatedDate
+      });
+    }
 
-      // ── TIKET 2: MASUK — Legalisir Transkrip ──
-      {
-        ticketId: generateTicketId(),
-        mahasiswaId: "22010003",
-        serviceId: new mongoose.Types.ObjectId(String(svcBAAK._id)),
-        departmentId: "DEPT-BAAK",
-        status: "Masuk",
-        dynamicData: {
-          alasan:        "Pemberkasan Beasiswa Unggulan 2026",
-          jumlah_lembar: "3",
-          tujuan_kirim:  "Ambil di Loket",
-        },
-        formSnapshot: svcBAAK.formBuilder.map((f: any) => ({
-          id: f.id, label: f.label, type: f.type, isRequired: f.isRequired,
-          ...(f.options ? { options: f.options } : {}),
-        })),
-        statusHistory: [
-          { status: "Masuk", timestamp: today, actor: "sistem", note: "Laporan berhasil dibuat." },
-        ],
-      },
-
-      // ── TIKET 3: DIPROSES — Pembersihan Kelas ──
-      {
-        ticketId: generateTicketId(),
-        mahasiswaId: "22010002",
-        serviceId: new mongoose.Types.ObjectId(String(svcKebersihan._id)),
-        departmentId: "DEPT-KEBERSIHAN",
-        status: "Diproses",
-        dynamicData: {
-          area_ruangan:  "Kelas 402 Gedung 4 Lt 4",
-          tingkat_kotor: "Parah",
-          catatan:       "Air menetes dari AC mengenai kursi mahasiswa, lantai licin dan berbahaya.",
-        },
-        formSnapshot: svcKebersihan.formBuilder.map((f: any) => ({
-          id: f.id, label: f.label, type: f.type, isRequired: f.isRequired,
-          ...(f.options ? { options: f.options } : {}),
-        })),
-        statusHistory: [
-          { status: "Masuk",    timestamp: yesterday, actor: "sistem",          note: "Laporan berhasil dibuat." },
-          { status: "Diproses", timestamp: today,     actor: "Admin Kebersihan", note: "Tim CS sedang menuju ke lantai 4 membawa perlengkapan." },
-        ],
-      },
-
-      // ── TIKET 4: DIPROSES — Perbaikan Proyektor ──
-      {
-        ticketId: generateTicketId(),
-        mahasiswaId: "22010001",
-        serviceId: new mongoose.Types.ObjectId(String(svcTeknisi._id)),
-        departmentId: "DEPT-TEKNISI",
-        status: "Diproses",
-        dynamicData: {
-          nomor_ruangan:       "Lab Komputer Terpadu C",
-          jenis_kerusakan:     "Mati Total",
-          deskripsi_kerusakan: "Proyektor mati tiba-tiba saat presentasi dosen, tidak bisa dihidupkan dengan remote maupun panel.",
-        },
-        formSnapshot: svcTeknisi.formBuilder.map((f: any) => ({
-          id: f.id, label: f.label, type: f.type, isRequired: f.isRequired,
-          ...(f.options ? { options: f.options } : {}),
-        })),
-        statusHistory: [
-          { status: "Masuk",    timestamp: twoDaysAgo, actor: "sistem",        note: "Laporan berhasil dibuat." },
-          { status: "Diproses", timestamp: yesterday,  actor: "Admin Teknisi", note: "Dalam tahap inspeksi. Diduga lampu proyektor putus." },
-        ],
-      },
-
-      // ── TIKET 5: SELESAI — Proyektor Warna Pudar ──
-      {
-        ticketId: generateTicketId(),
-        mahasiswaId: "22010003",
-        serviceId: new mongoose.Types.ObjectId(String(svcTeknisi._id)),
-        departmentId: "DEPT-TEKNISI",
-        status: "Selesai",
-        dynamicData: {
-          nomor_ruangan:       "Ruang 101 Gedung 1",
-          jenis_kerusakan:     "Warna Pudar",
-          deskripsi_kerusakan: "Warna output sangat kuning, teks tidak terbaca oleh mahasiswa di kursi belakang.",
-        },
-        formSnapshot: svcTeknisi.formBuilder.map((f: any) => ({
-          id: f.id, label: f.label, type: f.type, isRequired: f.isRequired,
-          ...(f.options ? { options: f.options } : {}),
-        })),
-        statusHistory: [
-          { status: "Masuk",    timestamp: twoDaysAgo, actor: "sistem",        note: "Laporan berhasil dibuat." },
-          { status: "Diproses", timestamp: twoDaysAgo, actor: "Admin Teknisi", note: "Sedang mencoba kalibrasi warna via setting default." },
-          { status: "Selesai",  timestamp: yesterday,  actor: "Admin Teknisi", note: "Penyolderan kabel VGA ulang telah dilakukan. Gambar normal." },
-        ],
-      },
-
-      // ── TIKET 6: SELESAI — Legalisir Melamar Kerja ──
-      {
-        ticketId: generateTicketId(),
-        mahasiswaId: "22010002",
-        serviceId: new mongoose.Types.ObjectId(String(svcBAAK._id)),
-        departmentId: "DEPT-BAAK",
-        status: "Selesai",
-        dynamicData: {
-          alasan:        "Melamar Lowongan Pekerjaan BUMN, deadline besok jam 8 pagi.",
-          jumlah_lembar: "5",
-          tujuan_kirim:  "Dikirim via Email",
-        },
-        formSnapshot: svcBAAK.formBuilder.map((f: any) => ({
-          id: f.id, label: f.label, type: f.type, isRequired: f.isRequired,
-          ...(f.options ? { options: f.options } : {}),
-        })),
-        statusHistory: [
-          { status: "Masuk",    timestamp: twoDaysAgo, actor: "sistem",    note: "Laporan berhasil dibuat." },
-          { status: "Diproses", timestamp: yesterday,  actor: "Admin BAAK", note: "Dokumen telah dicetak dan menunggu tanda tangan Wakil Dekan." },
-          { status: "Selesai",  timestamp: today,      actor: "Admin BAAK", note: "Legalisir sudah selesai. Silakan ambil di loket 2 BAAK." },
-        ],
-      },
-    ]);
+    // Menggunakan timestamps: false di override agar createdAt dan updatedAt bisa kita tentukan secara random
+    await Ticket.insertMany(ticketsData, { timestamps: false });
 
     console.log("✅ Seed selesai! Arsitektur Fully Dynamic siap diuji.");
   } catch (error) {
