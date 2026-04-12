@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useCallback } from "react";
 import { loginUser } from "@/app/actions/authActions";
-import { submitPublicTicket, type PublicFeedItem } from "@/app/actions/publicActions";
+import { submitPublicTicket, type PublicFeedItem, trackPublicTicket } from "@/app/actions/publicActions";
 
 // ─── Helpers ────────────────────────────────────────────────
 function formatTanggal(iso: string) {
@@ -46,8 +46,16 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
   const [svcLoading, setSvcLoading] = useState(false);
   const [selectedSvc, setSelectedSvc] = useState<PublicService | null>(null);
   const [isSubmitting, startSubmit] = useTransition();
-  const [submitResult, setSubmitResult] = useState<{ success?: boolean; ticketId?: string; message?: string; error?: string } | null>(null);
+  const [submitResult, setSubmitResult] = useState<{ success?: boolean; ticketId?: string; guestPin?: string; message?: string; error?: string } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // States for Tracking
+  const [trackId, setTrackId] = useState("");
+  const [trackPin, setTrackPin] = useState("");
+  const [isTracking, startTracking] = useTransition();
+  const [trackResult, setTrackResult] = useState<any>(null);
+  const [trackError, setTrackError] = useState("");
+  const [showTrackModal, setShowTrackModal] = useState(false);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -89,6 +97,21 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
       const result = await submitPublicTicket(fd);
       setSubmitResult(result);
       if (result.success) formRef.current?.reset();
+    });
+  }
+
+  async function handleTrack(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setTrackError("");
+    setTrackResult(null);
+    startTracking(async () => {
+      const res = await trackPublicTicket(trackId, trackPin);
+      if (res.error) {
+        setTrackError(res.error);
+      } else if (res.success && res.ticket) {
+        setTrackResult(res.ticket);
+        setShowTrackModal(true);
+      }
     });
   }
 
@@ -307,6 +330,42 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
             </div>
           </div>
 
+          {/* ── FITUR BARU: LACAK LAPORAN PUBLIK ── */}
+          <div className="card-light overflow-hidden">
+            <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
+            <div className="p-6 space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Lacak Laporan Anda</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">Cek status laporan menggunakan ID Tiket & PIN</p>
+              </div>
+
+              {trackError && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+                  {trackError}
+                </div>
+              )}
+
+              <form onSubmit={handleTrack} className="space-y-3">
+                <input
+                  type="text" required placeholder="ID Tiket (TKT-...)"
+                  value={trackId} onChange={e => setTrackId(e.target.value)}
+                  className="input-light py-2 text-sm"
+                />
+                <input
+                  type="text" required placeholder="PIN Rahasia (MET-...)"
+                  value={trackPin} onChange={e => setTrackPin(e.target.value)}
+                  className="input-light py-2 text-sm"
+                />
+                <button
+                  type="submit" disabled={isTracking}
+                  className="w-full btn-primary bg-amber-500 hover:bg-amber-600 py-2.5 text-xs shadow-md shadow-amber-500/20"
+                >
+                  {isTracking ? "Mengecek..." : "Cek Status Laporan"}
+                </button>
+              </form>
+            </div>
+          </div>
+
 
         </div>
       </div>
@@ -352,22 +411,42 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
             <div className="overflow-y-auto flex-1 px-6 py-5">
               {submitResult?.success ? (
                 /* Sukses */
-                <div className="text-center py-8 space-y-4">
-                  <div className="w-16 h-16 rounded-2xl bg-green-100 border border-green-200 flex items-center justify-center mx-auto">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <div className="text-center py-6 space-y-5">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center mx-auto shadow-lg shadow-green-500/30">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-slate-900">Pengajuan Terkirim!</h3>
-                    <p className="text-sm text-slate-500 mt-1">{submitResult.message}</p>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Laporan Berhasil!</h3>
+                    <p className="text-sm text-slate-500 mt-1 px-4">{submitResult.message} Silakan simpan kredensial di bawah ini untuk melacak status pelaporan Anda.</p>
                   </div>
-                  <div className="inline-block px-5 py-3 bg-amber-50 border border-amber-200 rounded-xl">
-                    <p className="text-xs text-slate-500 mb-1">Nomor Pengajuan Anda</p>
-                    <p className="text-xl font-black text-amber-700 font-mono tracking-widest">{submitResult.ticketId}</p>
+                  
+                  <div className="grid grid-cols-2 gap-3 pb-2 pt-1 text-left px-4">
+                    <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-4 relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg className="w-8 h-8 text-amber-900" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>
+                      </div>
+                      <p className="text-[10px] uppercase tracking-widest font-bold text-amber-800/60 mb-1">ID Tiket</p>
+                      <p className="font-mono text-sm font-black text-amber-900">{submitResult.ticketId}</p>
+                    </div>
+                    
+                    <div className="bg-red-50/50 border border-red-100 rounded-xl p-4 relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg className="w-8 h-8 text-red-900" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                      </div>
+                      <p className="text-[10px] uppercase tracking-widest font-bold text-red-800/60 mb-1">PIN Rahasia</p>
+                      <p className="font-mono text-sm font-black text-red-900">{submitResult.guestPin}</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-400">Simpan nomor ini sebagai referensi pengajuan Anda.</p>
-                  <button onClick={closeModal} className="btn-primary">Tutup</button>
+
+                  <div className="px-4">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-start gap-2.5 text-left mb-4">
+                      <svg className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Gunakan ID dan PIN di atas pada menu <strong>Lacak Laporan Anda</strong> di halaman utama. JANGAN berikan PIN ini kepada siapapun.</p>
+                    </div>
+                    <button onClick={closeModal} className="w-full btn-primary bg-slate-900 hover:bg-slate-800 py-3">Tutup & Kembali</button>
+                  </div>
                 </div>
               ) : (
                 /* Form */
@@ -383,10 +462,21 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
 
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+                      Nama Lengkap Pelapor <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="guestName" name="guestName" type="text" required
+                      placeholder="Masukkan nama lengkap"
+                      className="input-light"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
                       WhatsApp / Email Kontak <span className="text-red-500">*</span>
                     </label>
                     <input
-                      id="kontak_pelapor" name="kontak_pelapor" type="text" required
+                      id="guestContact" name="guestContact" type="text" required
                       placeholder="Contoh: 081234567890 atau nama@email.com"
                       className="input-light"
                     />
@@ -470,6 +560,99 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
           </div>
         </div>
       )}
+
+      {/* ═══════ MODAL PELACAKAN TIKET (GUEST TRACKING) ═══════ */}
+      {showTrackModal && trackResult && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowTrackModal(false)} />
+
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+            {/* Header Modal */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800">Status Laporan Anda</h3>
+                  <p className="text-[11px] font-mono text-slate-500">{trackResult.ticketId}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowTrackModal(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 max-h-[75vh] overflow-y-auto space-y-6">
+              {/* Laporan Detail */}
+              <div className="bg-slate-50 rounded-xl border border-slate-100 p-4 space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-0.5">Layanan</p>
+                    <p className="text-sm font-semibold text-slate-800">{trackResult.namaLayanan}</p>
+                  </div>
+                  <StatusPill status={trackResult.status} />
+                </div>
+                <div className="border-t border-slate-200/60 pt-3 flex justify-between items-center text-xs">
+                  <div>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-0.5">Pelapor</p>
+                    <p className="font-medium text-slate-700">{trackResult.guestName}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-0.5">Prioritas URL</p>
+                    <p className="font-medium text-slate-700">{trackResult.prioritas}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Timeline */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Riwayat Perjalanan
+                </h4>
+                <div className="relative pl-3 space-y-6">
+                  {/* Vertical Line */}
+                  <div className="absolute top-2 bottom-4 left-[21px] w-px bg-slate-200" />
+                  
+                  {trackResult.statusHistory.map((h: any, i: number) => {
+                    const isLast = i === trackResult.statusHistory.length - 1;
+                    return (
+                      <div key={i} className="relative flex gap-4 items-start">
+                        <div className={`w-[18px] h-[18px] rounded-full flex shrink-0 items-center justify-center relative z-10 mt-0.5 ${isLast ? 'bg-campus-primary text-white shadow-md shadow-campus-primary/30 ring-4 ring-white' : 'bg-slate-200 border-2 border-white'}`}>
+                          {isLast && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-bold ${isLast ? 'text-slate-900' : 'text-slate-600'}`}>
+                            {h.status}
+                          </p>
+                          <div className="text-[11px] text-slate-400 font-medium mb-1 mt-0.5 flex flex-wrap gap-x-2">
+                            <span>{formatTanggal(h.timestamp)}</span>
+                          </div>
+                          {h.note && (
+                            <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 mt-1.5 w-full">
+                              <p className="text-xs text-slate-600 leading-relaxed italic">{h.note}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 text-center">
+              <button onClick={() => setShowTrackModal(false)} className="w-full btn-primary bg-slate-800 hover:bg-slate-900 py-2.5">
+                Tutup Pelacakan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

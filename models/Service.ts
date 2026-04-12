@@ -18,6 +18,7 @@ export interface IService extends Document {
   departmentId: string;
   isActive: boolean;        // dipertahankan — Super Admin bisa enable/disable layanan
   isPublic: boolean;        // true = bisa diakses tamu/publik tanpa login
+  defaultPrioritas: string; // prioritas SLA berdasarkan layanan
   formBuilder: IFormField[];
   createdAt: Date;
   updatedAt: Date;
@@ -81,6 +82,11 @@ const ServiceSchema = new Schema<IService>(
     isPublic: {
       type: Boolean,
       default: false, // by default tidak publik — harus di-enable manual oleh Super Admin
+    },
+    defaultPrioritas: {
+      type: String,
+      enum: ["Rendah", "Sedang", "Tinggi", "Kritis"],
+      default: "Sedang",
     },
     formBuilder: {
       type: [FormFieldSchema],

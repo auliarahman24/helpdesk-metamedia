@@ -309,7 +309,7 @@ export default function MonitoringClient({
                         </span>
                         <div className="flex items-center gap-1.5 mt-1 text-slate-500 text-xs">
                           <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
-                          <span>{ticket.mahasiswaId}</span>
+                          <span>{ticket.isGuest ? `Tamu — ${ticket.guestName}` : ticket.mahasiswaId}</span>
                         </div>
                       </div>
                     </td>
@@ -415,8 +415,10 @@ export default function MonitoringClient({
                   {/* Info pelapor */}
                   <div className="grid grid-cols-2 gap-4 text-xs">
                     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">NIM / Pelapor</p>
-                      <p className="text-slate-800 font-bold font-mono text-sm">{selectedTicket.mahasiswaId}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Identitas Pelapor</p>
+                      <p className={`text-slate-800 font-bold text-sm ${selectedTicket.isGuest ? "" : "font-mono"}`}>
+                        {selectedTicket.isGuest ? `Tamu Publik — ${selectedTicket.guestName} (${selectedTicket.guestContact})` : selectedTicket.mahasiswaId}
+                      </p>
                     </div>
                     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Waktu Masuk</p>

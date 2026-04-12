@@ -199,33 +199,7 @@ export default function PengajuanPage() {
                   </div>
                 </div>
 
-                {/* ── TINGKAT URGENSI / PRIORITAS ── */}
-                {selectedService && (
-                  <div className="space-y-2 pt-4 border-t border-slate-100">
-                    <label htmlFor="prioritas" className="block text-sm font-bold text-slate-700">
-                      Tingkat Urgensi / Prioritas <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <select
-                        id="prioritas"
-                        name="prioritas"
-                        required
-                        defaultValue="Sedang"
-                        className="w-full pl-4 pr-10 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm font-medium outline-none transition-all duration-200 appearance-none cursor-pointer focus:bg-white focus:border-campus-primary focus:ring-4 focus:ring-campus-primary/10 shadow-sm"
-                      >
-                        <option value="Rendah">Rendah</option>
-                        <option value="Sedang">Sedang</option>
-                        <option value="Tinggi">Tinggi</option>
-                        <option value="Kritis">Kritis</option>
-                      </select>
-                      <div className="absolute top-[14px] right-4 pointer-events-none text-slate-400">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-                )}
+
 
                 {/* ── DYNAMIC FIELDS — di-render dari formBuilder layanan ── */}
                 {selectedService && selectedService.formBuilder.length > 0 && (

@@ -84,6 +84,7 @@ export async function getPublicFeed(): Promise<PublicFeedItem[]> {
 export async function submitPublicTicket(formData: FormData): Promise<{
   success?: boolean;
   ticketId?: string;
+  guestPin?: string;
   message?: string;
   error?: string;
 }> {
@@ -107,6 +108,13 @@ export async function submitPublicTicket(formData: FormData): Promise<{
     if (!service.isPublic) {
       // Keamanan: cegah submit ke layanan non-publik via manipulasi form
       return { error: "Layanan ini tidak tersedia untuk pelaporan publik." };
+    }
+
+    const guestName = (formData.get("guestName") as string)?.trim();
+    const guestContact = (formData.get("guestContact") as string)?.trim();
+
+    if (!guestName || !guestContact) {
+      return { error: "Nama dan Kontak Pelapor wajib diisi." };
     }
 
     // 3. Buat upload directory
@@ -147,21 +155,31 @@ export async function submitPublicTicket(formData: FormData): Promise<{
       }
     }
 
-    // 5. Generate Ticket ID
+    // 5. Generate Ticket ID & PIN
     const ticketId = generateTicketId();
+    
+    const pinChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const randPin = Array.from({ length: 4 }, () =>
+      pinChars[Math.floor(Math.random() * pinChars.length)]
+    ).join("");
+    const guestPin = `MET-${randPin}`;
 
-    const prioritas = (formData.get("prioritas") as string) || "Sedang";
+    const prioritas = service.defaultPrioritas || "Sedang";
 
-    // 6. Simpan tiket dengan 2 modifikasi keamanan utama:
-    //    - mahasiswaId  = "PUBLIC_GUEST"  (bukan dari session)
-    //    - status       = "Pending Verifikasi"  (karantina admin)
+    // 6. Simpan tiket dengan modifikasi keamanan:
+    //    - mahasiswaId  = "PUBLIC_GUEST"
+    //    - status       = "Pending Verifikasi" (karantina admin)
     await Ticket.create({
       ticketId,
-      mahasiswaId: "PUBLIC_GUEST",             // ← injeksi paksa, bukan dari input
+      mahasiswaId: "PUBLIC_GUEST",             // ← injeksi paksa
       departmentId: service.departmentId,
       serviceId: new mongoose.Types.ObjectId(serviceId),
-      status: "Pending Verifikasi",             // ← karantina, bukan "Masuk"
+      status: "Pending Verifikasi",             // ← karantina
       prioritas,
+      isGuest: true,
+      guestName,
+      guestContact,
+      guestPin,
       dynamicData,
       formSnapshot: service.formBuilder.map((f) => ({
         id: f.id,
@@ -183,13 +201,54 @@ export async function submitPublicTicket(formData: FormData): Promise<{
     return {
       success: true,
       ticketId,
-      message:
-        "Laporan berhasil dikirim! Nomor tiket Anda adalah " +
-        ticketId +
-        ". Simpan nomor ini untuk memantau status laporan Anda.",
+      guestPin,
+      message: "Laporan berhasil dikirim!",
     };
   } catch (error) {
     console.error("[publicActions] submitPublicTicket error:", error);
     return { error: "Terjadi kesalahan server. Silakan coba lagi." };
+  }
+}
+
+// ============================================================
+// 3. trackPublicTicket()
+//
+//    Fitur Self-Service Guest Tracking menggunakan PIN Rahasia
+// ============================================================
+export async function trackPublicTicket(ticketId: string, guestPin: string) {
+  try {
+    await dbConnect();
+    
+    // Cari berdsrkan ID & PIN
+    const ticket = await Ticket.findOne({
+      ticketId: ticketId.trim(),
+      guestPin: guestPin.trim(),
+      isGuest: true
+    }).populate("serviceId", "namaLayanan").lean();
+
+    if (!ticket) {
+      return { error: "Tiket tidak ditemukan atau PIN salah." };
+    }
+
+    const t = ticket as any;
+    return {
+      success: true,
+      ticket: {
+        ticketId: t.ticketId,
+        guestName: t.guestName,
+        namaLayanan: t.serviceId?.namaLayanan || "Layanan Umum",
+        status: t.status,
+        prioritas: t.prioritas,
+        waktuMasuk: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
+        statusHistory: (t.statusHistory || []).map((h: any) => ({
+          status: h.status,
+          timestamp: h.timestamp ? new Date(h.timestamp).toISOString() : new Date().toISOString(),
+          note: h.note || ""
+        }))
+      }
+    };
+  } catch (error) {
+    console.error("[publicActions] trackPublicTicket error:", error);
+    return { error: "Terjadi kesalahan sistem saat melacak tiket." };
   }
 }

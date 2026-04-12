@@ -177,7 +177,7 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-xs border-t border-slate-200 pt-4">
                     {[
-                      { label: "NIM Pelapor",     val: selectedTicket.mahasiswaId },
+                      { label: "Identitas Pelapor", val: selectedTicket.isGuest ? `Tamu Publik — ${selectedTicket.guestName} (${selectedTicket.guestContact})` : selectedTicket.mahasiswaId },
                       { label: "Prioritas",       val: <PrioritasBadge prioritas={selectedTicket.prioritas || "Sedang"} /> },
                       { label: "Status Saat Ini", val: <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getTicketStatusColor(selectedTicket.statusTerkini)}`}>{selectedTicket.statusTerkini}</span> },
                       { label: "Waktu Masuk",     val: formatTanggal(selectedTicket.waktuMasuk) },

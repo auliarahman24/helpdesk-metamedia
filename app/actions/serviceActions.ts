@@ -25,6 +25,7 @@ const FormFieldSchema = z.object({
 const CreateServiceSchema = z.object({
   namaLayanan: z.string().min(1, "Nama layanan wajib diisi"),
   departmentId: z.string().min(1, "Department ID wajib diisi"),
+  defaultPrioritas: z.enum(["Rendah", "Sedang", "Tinggi", "Kritis"]).default("Sedang"),
   formBuilder: z.array(FormFieldSchema).default([]),
 });
 
@@ -37,6 +38,7 @@ export interface ServiceRow {
   _id: string;
   namaLayanan: string;
   departmentId: string;
+  defaultPrioritas: "Rendah" | "Sedang" | "Tinggi" | "Kritis";
   isActive: boolean;
   formBuilderCount: number;
   formBuilder: Array<{
@@ -61,6 +63,7 @@ export async function getAllServices(): Promise<ServiceRow[]> {
     _id: String(s._id),
     namaLayanan: s.namaLayanan,
     departmentId: s.departmentId,
+    defaultPrioritas: (s.defaultPrioritas as "Rendah" | "Sedang" | "Tinggi" | "Kritis") || "Sedang",
     isActive: s.isActive,
     formBuilderCount: s.formBuilder?.length || 0,
     formBuilder: (s.formBuilder || []).map((f) => ({
@@ -108,6 +111,7 @@ export async function createService(data: CreateServiceInput) {
     const service = await Service.create({
       namaLayanan: parsed.data.namaLayanan,
       departmentId: parsed.data.departmentId,
+      defaultPrioritas: parsed.data.defaultPrioritas,
       isActive: true,
       formBuilder: parsed.data.formBuilder.map((f) => ({
         id: f.id,
@@ -189,6 +193,7 @@ export async function updateService(serviceId: string, data: CreateServiceInput)
 
     service.namaLayanan = parsed.data.namaLayanan;
     service.departmentId = parsed.data.departmentId;
+    service.defaultPrioritas = parsed.data.defaultPrioritas;
     service.formBuilder = parsed.data.formBuilder.map((f) => ({
       id: f.id,
       label: f.label,

@@ -18,6 +18,13 @@ export interface ITicket extends Document {
   serviceId: mongoose.Types.ObjectId; // Relasi ke Service
   status: string;               // Status saat ini (single field untuk efisiensi query)
   prioritas: string;            // Tingkat urgensi tiket (Rendah, Sedang, Tinggi, Kritis)
+  
+  // Public/Guest System Fields
+  isGuest: boolean;
+  guestName?: string;
+  guestContact?: string;
+  guestPin?: string;
+
   dynamicData: Map<string, unknown>; // Semua jawaban form (termasuk URL file)
   formSnapshot: unknown[];      // Snapshot layout form saat tiket dibuat (Point-in-Time)
   statusHistory: IStatusHistory[];
@@ -76,6 +83,10 @@ const TicketSchema = new Schema<ITicket>(
       default: "Sedang",
       required: [true, "Prioritas wajib diisi"],
     },
+    isGuest: { type: Boolean, default: false },
+    guestName: { type: String },
+    guestContact: { type: String },
+    guestPin: { type: String },
     // Map untuk menyimpan semua jawaban form secara dinamis
     // Key = field.id dari formBuilder, Value = string/number/URL file
     dynamicData: {

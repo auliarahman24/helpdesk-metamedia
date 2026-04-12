@@ -148,8 +148,8 @@ export async function submitTicketFormData(formData: FormData) {
     // 6. Generate custom ticketId
     const ticketId = generateTicketId();
 
-    // Ambil prioritas dari form statis
-    const prioritas = (formData.get("prioritas") as string) || "Sedang";
+    // Ambil prioritas auto-inherit dari Master Layanan
+    const prioritas = service.defaultPrioritas || "Sedang";
 
     // 7. Simpan tiket ke database
     const ticket = await Ticket.create({
@@ -201,6 +201,9 @@ export interface TicketRow {
   namaLayanan: string;           // dari populate Service
   status: string;
   prioritas: string;
+  isGuest?: boolean;
+  guestName?: string;
+  guestContact?: string;
   statusTerkini: string;         // alias status (backward compat UI)
   dynamicData: Record<string, unknown>;
   formSnapshot: FormFieldData[];
@@ -233,6 +236,9 @@ function mapToTicketRow(t: any): TicketRow {
     namaLayanan: t.serviceId?.namaLayanan || "",  // hasil populate
     status: t.status || "Masuk",
     prioritas: t.prioritas || "Sedang",
+    isGuest: t.isGuest || false,
+    guestName: t.guestName || "",
+    guestContact: t.guestContact || "",
     statusTerkini: t.status || "Masuk",
     dynamicData: dynData,
     formSnapshot: (t.formSnapshot || []) as FormFieldData[],

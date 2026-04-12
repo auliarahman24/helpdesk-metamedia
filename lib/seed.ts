@@ -60,44 +60,65 @@ export async function seedDatabase() {
 
     // 4. Seed Services — FULLY DYNAMIC: tipe baru (text, textarea, select, file)
     console.log("Menyemai data Services...");
-    const services = await Service.insertMany([
+    const servicesData = [
       {
         namaLayanan: "Legalisir Transkrip Nilai",
         departmentId: "DEPT-BAAK",
+        defaultPrioritas: "Sedang",
         isActive: true,
         formBuilder: [
           { id: "alasan",        label: "Alasan Permohonan",        type: "textarea", isRequired: true },
-          { id: "jumlah_lembar", label: "Jumlah Lembar",             type: "text",     isRequired: true },
-          { id: "tujuan_kirim",  label: "Tujuan Pengiriman",         type: "select",   isRequired: true,
-            options: ["Ambil di Loket", "Dikirim via Email", "Dikirim via Pos"] },
+          { id: "jumlah_lembar", label: "Jumlah Lembar",            type: "text",     isRequired: true },
+          { id: "tujuan_kirim",  label: "Tujuan Pengiriman",        type: "select",   isRequired: true, options: ["Ambil di Loket", "Dikirim via Email", "Dikirim via Pos"] },
+        ],
+      },
+      {
+        namaLayanan: "Surat Keterangan Aktif Kuliah",
+        departmentId: "DEPT-BAAK",
+        defaultPrioritas: "Rendah",
+        isActive: true,
+        formBuilder: [
+          { id: "keperluan",     label: "Keperluan Surat",          type: "text", isRequired: true },
+          { id: "semester",      label: "Semester Saat Ini",        type: "text", isRequired: true },
         ],
       },
       {
         namaLayanan: "Perbaikan Proyektor Kelas",
         departmentId: "DEPT-TEKNISI",
+        defaultPrioritas: "Tinggi",
         isActive: true,
         formBuilder: [
           { id: "nomor_ruangan",   label: "Nomor Ruangan",   type: "text",   isRequired: true },
-          { id: "jenis_kerusakan", label: "Jenis Kerusakan", type: "select", isRequired: true,
-            options: ["Mati Total", "Warna Pudar", "Tidak Konek Laptop", "Suara Tidak Keluar", "Lainnya"] },
+          { id: "jenis_kerusakan", label: "Jenis Kerusakan", type: "select", isRequired: true, options: ["Mati Total", "Warna Pudar", "Tidak Konek Laptop", "Suara Tidak Keluar", "Lainnya"] },
           { id: "deskripsi_kerusakan", label: "Deskripsi Kerusakan", type: "textarea", isRequired: true },
           { id: "foto_kondisi",   label: "Foto Kondisi Proyektor",  type: "file",     isRequired: false },
         ],
       },
       {
+        namaLayanan: "Gangguan Internet Terpusat",
+        departmentId: "DEPT-TEKNISI",
+        defaultPrioritas: "Kritis",
+        isActive: true,
+        formBuilder: [
+          { id: "lokasi_jaringan", label: "Lokasi Jaringan (Gedung/Lantai)", type: "text",   isRequired: true },
+          { id: "waktu_mati",      label: "Sejak Kapan Mati",                type: "text", isRequired: true },
+        ],
+      },
+      {
         namaLayanan: "Pembersihan Kelas / Area",
         departmentId: "DEPT-KEBERSIHAN",
+        defaultPrioritas: "Rendah",
         isActive: true,
         formBuilder: [
           { id: "area_ruangan",  label: "Area / Ruangan",     type: "text",   isRequired: true },
-          { id: "tingkat_kotor", label: "Tingkat Keparahan",  type: "select", isRequired: true,
-            options: ["Ringan", "Sedang", "Parah", "Sangat Parah"] },
+          { id: "tingkat_kotor", label: "Tingkat Keparahan",  type: "select", isRequired: true, options: ["Ringan", "Sedang", "Parah", "Sangat Parah"] },
           { id: "catatan",       label: "Catatan Tambahan",   type: "textarea", isRequired: false },
         ],
       },
       {
         namaLayanan: "Lapor Barang Hilang",
         departmentId: "DEPT-KEAMANAN",
+        defaultPrioritas: "Tinggi",
         isActive: true,
         formBuilder: [
           { id: "nama_barang",     label: "Nama Barang",              type: "text",     isRequired: true },
@@ -107,51 +128,87 @@ export async function seedDatabase() {
           { id: "foto_barang",     label: "Foto Barang Hilang",       type: "file",     isRequired: false },
         ],
       },
-    ]);
+      {
+        namaLayanan: "Laporan Keadaan Darurat",
+        departmentId: "DEPT-KEAMANAN",
+        defaultPrioritas: "Kritis",
+        isActive: true,
+        formBuilder: [
+          { id: "jenis_darurat",  label: "Jenis Keadaan Darurat", type: "select", isRequired: true, options: ["Kecelakaan Fisik", "Kebakaran", "Pertikaian", "Lainnya"] },
+          { id: "lokasi_darurat", label: "Lokasi Kejadian",       type: "text",   isRequired: true },
+        ],
+      },
+    ];
+
+    const services = await Service.insertMany(servicesData);
 
     // 5. Seed Tickets — ARSITEKTUR FULLY DYNAMIC (tanpa field statis lama)
     console.log("Menyemai data Tickets...");
 
-    const [svcBAAK, svcTeknisi, svcKebersihan, svcKeamanan] = services;
-
     const ticketsData = [];
     const mahasiswaIds = ["22010001", "22010002", "22010003"];
-    const priorities = ["Rendah", "Sedang", "Tinggi", "Kritis"];
     const statuses = ["Masuk", "Diproses", "Pending Verifikasi", "Tertunda", "Dikonfirmasi", "Ditolak", "Selesai", "Dibatalkan"];
     
-    // Pemetaan data dinamis berdasarkan service
-    const serviceTemplates = {
-      "DEPT-KEAMANAN": {
-        dynamicData: { nama_barang: "Laptop Asus ROG Hitam", lokasi_terakhir: "Kantin Utama Area Timur", waktu_kejadian: "12:30 WIB", deskripsi: "Tertinggal setelah makan siang bareng teman." },
+    // Pemetaan data dinamis berdasarkan nama layanan
+    const serviceTemplates: Record<string, any> = {
+      "Legalisir Transkrip Nilai": {
+        dynamicData: { alasan: "Pemberkasan Beasiswa Unggulan", jumlah_lembar: "4", tujuan_kirim: "Ambil di Loket" },
       },
-      "DEPT-BAAK": {
-        dynamicData: { alasan: "Keperluan Pemberkasan CPNS 2026", jumlah_lembar: "4", tujuan_kirim: "Dikirim via Email" },
+      "Surat Keterangan Aktif Kuliah": {
+        dynamicData: { keperluan: "Persyaratan Lomba Tingkat Nasional", semester: "Semester 6" },
       },
-      "DEPT-KEBERSIHAN": {
-        dynamicData: { area_ruangan: "Toilet Lantai 2 Gedung 3", tingkat_kotor: "Sangat Parah", catatan: "Air dari wastafel meluap dan membuat lantai sangat licin." },
+      "Perbaikan Proyektor Kelas": {
+        dynamicData: { nomor_ruangan: "Lab Jaringan Lt. 4", jenis_kerusakan: "Suara Tidak Keluar", deskripsi_kerusakan: "Kabel HDMI longgar." },
       },
-      "DEPT-TEKNISI": {
-        dynamicData: { nomor_ruangan: "Lab Jaringan Lt. 4", jenis_kerusakan: "Suara Tidak Keluar", deskripsi_kerusakan: "HDMI nyambung gambar bagus tapi suara hilang saat play video materi." },
-      }
+      "Gangguan Internet Terpusat": {
+        dynamicData: { lokasi_jaringan: "Gedung A Seluruh Lantai 2", waktu_mati: "Sejak pukul 14:00 WIB" },
+      },
+      "Pembersihan Kelas / Area": {
+        dynamicData: { area_ruangan: "Toilet Lantai 2", tingkat_kotor: "Sangat Parah", catatan: "Air dari wastafel meluap." },
+      },
+      "Lapor Barang Hilang": {
+        dynamicData: { nama_barang: "Dompet Kulit Coklat", lokasi_terakhir: "Kantin Utama Area Timur", waktu_kejadian: "12:30 WIB", deskripsi: "Tertinggal pas makan siang." },
+      },
+      "Laporan Keadaan Darurat": {
+        dynamicData: { jenis_darurat: "Kecelakaan Fisik", lokasi_darurat: "Parkiran Motor Gerbang Timur" },
+      },
     };
 
-    const servicesArr = [svcBAAK, svcTeknisi, svcKebersihan, svcKeamanan];
-
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 70; i++) {
       const generatedDate = new Date();
       // mundur secara acak antara 0 hingga 45 hari
       const delayHours = Math.floor(Math.random() * 24 * 45);
       generatedDate.setHours(generatedDate.getHours() - delayHours);
 
-      const svc = servicesArr[Math.floor(Math.random() * servicesArr.length)];
-      const template = serviceTemplates[svc.departmentId as keyof typeof serviceTemplates];
+      // Pilih secara acak dari list services
+      const svc = services[Math.floor(Math.random() * services.length)];
+      const template = serviceTemplates[svc.namaLayanan] || { dynamicData: {} };
       
-      const mhsId = mahasiswaIds[Math.floor(Math.random() * mahasiswaIds.length)];
-      const prioritas = priorities[Math.floor(Math.random() * priorities.length)];
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      const isPublicGuest = Math.random() < 0.25; // 25% probabilitas tamu
+      const mhsId = isPublicGuest ? "PUBLIC_GUEST" : mahasiswaIds[Math.floor(Math.random() * mahasiswaIds.length)];
+      
+      let guestData: any = { isGuest: false };
+      if (isPublicGuest) {
+        guestData = {
+          isGuest: true,
+          guestName: ["Ahmad Zulkarnain", "Budi Santoso", "Siti Aminah", "Joko Widodo"][Math.floor(Math.random() * 4)],
+          guestContact: ["08123456789", "0856000000", "0819999999", "tamu@contoh.com"][Math.floor(Math.random() * 4)],
+          guestPin: `MET-${Math.floor(1000 + Math.random() * 9000).toString()}`
+        };
+      }
+      const prioritas = svc.defaultPrioritas || "Sedang";
+      let status;
+      if (isPublicGuest) {
+        status = "Pending Verifikasi"; // Semua tamu masuk karantina
+      } else {
+        const mhsStatuses = ["Masuk", "Diproses", "Tertunda", "Dikonfirmasi", "Ditolak", "Selesai", "Dibatalkan"];
+        status = mhsStatuses[Math.floor(Math.random() * mhsStatuses.length)];
+      }
 
-      const history = [{ status: "Masuk", timestamp: new Date(generatedDate.getTime() - 3600000 * 24), actor: "sistem", note: "Laporan berhasil dibuat otomatis oleh Seed Script." }];
-      if (status !== "Masuk") {
+      const initialStatus = isPublicGuest ? "Pending Verifikasi" : "Masuk";
+      const history = [{ status: initialStatus, timestamp: new Date(generatedDate.getTime() - 3600000 * 24), actor: "sistem", note: "Laporan berhasil dibuat otomatis oleh Seed Script." }];
+      
+      if (!isPublicGuest && status !== "Masuk") {
         history.push({ status: status, timestamp: generatedDate, actor: `Admin ${svc.departmentId.split('-')[1]}`, note: "Diupdate secara otomatis via script bulk dummy." });
       }
 
@@ -162,6 +219,7 @@ export async function seedDatabase() {
         departmentId: svc.departmentId,
         status: status,
         prioritas: prioritas,
+        ...guestData,
         dynamicData: template.dynamicData,
         formSnapshot: svc.formBuilder.map((f: any) => ({
           id: f.id, label: f.label, type: f.type, isRequired: f.isRequired,

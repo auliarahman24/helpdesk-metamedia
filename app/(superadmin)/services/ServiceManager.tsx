@@ -37,6 +37,7 @@ interface FormFieldInput {
 interface FormValues {
   namaLayanan: string;
   departmentId: string;
+  defaultPrioritas: "Rendah" | "Sedang" | "Tinggi" | "Kritis";
   formBuilder: FormFieldInput[];
 }
 
@@ -87,6 +88,7 @@ export default function ServiceManager({
     defaultValues: {
       namaLayanan: "",
       departmentId: "",
+      defaultPrioritas: "Sedang",
       formBuilder: [],
     },
   });
@@ -104,6 +106,7 @@ export default function ServiceManager({
     reset({
       namaLayanan: "",
       departmentId: "",
+      defaultPrioritas: "Sedang",
       formBuilder: [],
     });
     setResult(null);
@@ -115,6 +118,7 @@ export default function ServiceManager({
     reset({
       namaLayanan: service.namaLayanan,
       departmentId: service.departmentId,
+      defaultPrioritas: service.defaultPrioritas || "Sedang",
       formBuilder: (service.formBuilder || []).map((f) => ({
         id: f.id,
         label: f.label,
@@ -155,6 +159,7 @@ export default function ServiceManager({
     const payload: CreateServiceInput = {
       namaLayanan: data.namaLayanan,
       departmentId: data.departmentId,
+      defaultPrioritas: data.defaultPrioritas,
       formBuilder: enriched.map((f) => ({
         id: f.id,
         label: f.label,
@@ -181,7 +186,7 @@ export default function ServiceManager({
           setServices((prev) =>
             prev.map((s) =>
               s._id === editModeId
-                ? { ...s, namaLayanan: data.namaLayanan, departmentId: data.departmentId, formBuilderCount: data.formBuilder.length, formBuilder: payload.formBuilder }
+                ? { ...s, namaLayanan: data.namaLayanan, departmentId: data.departmentId, defaultPrioritas: data.defaultPrioritas, formBuilderCount: data.formBuilder.length, formBuilder: payload.formBuilder }
                 : s
             )
           );
@@ -198,6 +203,7 @@ export default function ServiceManager({
               _id: res.serviceId || Date.now().toString(),
               namaLayanan: data.namaLayanan,
               departmentId: data.departmentId,
+              defaultPrioritas: data.defaultPrioritas,
               isActive: true,
               formBuilderCount: data.formBuilder.length,
               formBuilder: payload.formBuilder,
@@ -398,7 +404,7 @@ export default function ServiceManager({
                     Informasi Layanan
                   </h3>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
                       <label
                         htmlFor="namaLayanan"
@@ -456,6 +462,40 @@ export default function ServiceManager({
                       </div>
                       {errors.departmentId && (
                         <p className="text-xs text-rose-500 font-medium">{errors.departmentId.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="defaultPrioritas"
+                        className="block text-xs font-bold text-slate-500 uppercase tracking-wider"
+                      >
+                        Prioritas Bawaan Layanan <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Controller
+                          name="defaultPrioritas"
+                          control={control}
+                          rules={{ required: "Prioritas wajib dipilih" }}
+                          render={({ field }) => (
+                            <select
+                              {...field}
+                              id="defaultPrioritas"
+                              className={selectClass}
+                            >
+                              <option value="Rendah">Rendah</option>
+                              <option value="Sedang">Sedang</option>
+                              <option value="Tinggi">Tinggi</option>
+                              <option value="Kritis">Kritis</option>
+                            </select>
+                          )}
+                        />
+                        <div className="absolute top-[10px] right-3 flex items-center pointer-events-none text-slate-400">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
+                        </div>
+                      </div>
+                      {errors.defaultPrioritas && (
+                        <p className="text-xs text-rose-500 font-medium">{errors.defaultPrioritas.message}</p>
                       )}
                     </div>
                   </div>
