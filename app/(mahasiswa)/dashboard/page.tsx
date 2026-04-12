@@ -44,13 +44,6 @@ export default async function DashboardPage() {
     .sort({ createdAt: -1 })
     .lean();
 
-  const sarprasTickets = await Ticket.find({
-    departmentId: { $in: ["DEPT-SARPRAS", "DEPT-TEKNISI", "DEPT-KEBERSIHAN"] },
-  })
-    .populate("serviceId", "namaLayanan")
-    .sort({ createdAt: -1 })
-    .lean();
-
   // Statistik
   const total    = tickets.length;
   const diproses = tickets.filter((t) => (t as any).status === "Diproses").length;
@@ -202,59 +195,7 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* ── Pantauan Fasilitas Kampus ── */}
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-brand-gold" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
-              </svg>
-              Pantauan Fasilitas Kampus
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">Laporan fasilitas dari seluruh mahasiswa (identitas dirahasiakan)</p>
-          </div>
 
-          {sarprasTickets.length === 0 ? (
-            <div className="card-light p-8 text-center">
-              <p className="text-slate-400 text-sm">Belum ada laporan fasilitas.</p>
-            </div>
-          ) : (
-            <div className="card-light overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="table-light">
-                  <thead>
-                    <tr>
-                      <th>Judul Laporan</th>
-                      <th>Pelapor</th>
-                      <th>Waktu Masuk</th>
-                      <th className="text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sarprasTickets.map((ticket) => {
-                      const namaLayanan = (ticket.serviceId as any)?.namaLayanan || ticket.departmentId || "Layanan";
-                      const currentStatus = (ticket as any).status ||
-                        (ticket.statusHistory?.length > 0 ? ticket.statusHistory[ticket.statusHistory.length - 1].status : "Masuk");
-                      return (
-                        <tr key={String(ticket._id)}>
-                          <td>
-                            <p className="text-slate-900 font-semibold">{namaLayanan}</p>
-                            <p className="text-slate-400 text-xs font-mono mt-0.5">
-                              {(ticket as any).ticketId || String(ticket._id).slice(-8).toUpperCase()}
-                            </p>
-                          </td>
-                          <td className="text-slate-500 text-xs italic">Mahasiswa (Anonim)</td>
-                          <td className="text-slate-500 text-xs whitespace-nowrap">{formatTanggal(ticket.createdAt)}</td>
-                          <td className="text-center"><StatusBadge status={currentStatus} /></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

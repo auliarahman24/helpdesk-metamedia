@@ -150,6 +150,8 @@ export async function submitPublicTicket(formData: FormData): Promise<{
     // 5. Generate Ticket ID
     const ticketId = generateTicketId();
 
+    const prioritas = (formData.get("prioritas") as string) || "Sedang";
+
     // 6. Simpan tiket dengan 2 modifikasi keamanan utama:
     //    - mahasiswaId  = "PUBLIC_GUEST"  (bukan dari session)
     //    - status       = "Pending Verifikasi"  (karantina admin)
@@ -159,6 +161,7 @@ export async function submitPublicTicket(formData: FormData): Promise<{
       departmentId: service.departmentId,
       serviceId: new mongoose.Types.ObjectId(serviceId),
       status: "Pending Verifikasi",             // ← karantina, bukan "Masuk"
+      prioritas,
       dynamicData,
       formSnapshot: service.formBuilder.map((f) => ({
         id: f.id,

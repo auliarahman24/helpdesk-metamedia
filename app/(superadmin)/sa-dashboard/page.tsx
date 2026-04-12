@@ -1,5 +1,18 @@
 export const dynamic = "force-dynamic";
 
+import { getTicketStatusColor } from "@/lib/utils";
+
+function PrioritasBadge({ prioritas }: { prioritas: string }) {
+  const cls: Record<string, string> = {
+    "Rendah": "bg-emerald-100 text-emerald-700 border-emerald-200",
+    "Sedang": "bg-blue-100 text-blue-700 border-blue-200",
+    "Tinggi": "bg-orange-100 text-orange-700 border-orange-200",
+    "Kritis": "bg-red-100 text-red-700 border-red-200",
+  };
+  const badgeClass = cls[prioritas] || cls["Sedang"];
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider ${badgeClass}`}>{prioritas}</span>;
+}
+
 export default function SADashboardPage() {
   const stats = [
     {
@@ -47,20 +60,12 @@ export default function SADashboardPage() {
   ];
 
   const recentActivity = [
-    { id: "TKT-260411-0012", layanan: "Perbaikan AC Kelas", dept: "DEPT-SARPRAS", status: "Diproses", waktu: "10 menit lalu" },
-    { id: "TKT-260411-0011", layanan: "Reset Password SIAKAD", dept: "DEPT-TI",      status: "Selesai",  waktu: "25 menit lalu" },
-    { id: "TKT-260410-0044", layanan: "Peminjaman Proyektor", dept: "DEPT-SARPRAS", status: "Masuk",    waktu: "1 jam lalu" },
-    { id: "TKT-260410-0043", layanan: "Kebersihan Toilet Lt.3", dept: "DEPT-KEBERSIHAN", status: "Selesai", waktu: "2 jam lalu" },
-    { id: "TKT-260410-0042", layanan: "Konsultasi Keuangan", dept: "DEPT-KEUANGAN", status: "Pending Verifikasi", waktu: "3 jam lalu" },
+    { id: "TKT-260411-0012", layanan: "Perbaikan AC Kelas", dept: "DEPT-SARPRAS", prioritas: "Tinggi", status: "Diproses", waktu: "10 menit lalu" },
+    { id: "TKT-260411-0011", layanan: "Reset Password SIAKAD", dept: "DEPT-TI", prioritas: "Sedang", status: "Selesai", waktu: "25 menit lalu" },
+    { id: "TKT-260410-0044", layanan: "Peminjaman Proyektor", dept: "DEPT-SARPRAS", prioritas: "Rendah", status: "Masuk", waktu: "1 jam lalu" },
+    { id: "TKT-260410-0043", layanan: "Kebersihan Toilet Lt.3", dept: "DEPT-KEBERSIHAN", prioritas: "Rendah", status: "Selesai", waktu: "2 jam lalu" },
+    { id: "TKT-260410-0042", layanan: "Konsultasi Keuangan", dept: "DEPT-KEUANGAN", prioritas: "Kritis", status: "Pending Verifikasi", waktu: "3 jam lalu" },
   ];
-
-  const statusBadge: Record<string, string> = {
-    "Masuk":              "badge badge-masuk",
-    "Diproses":           "badge badge-diproses",
-    "Selesai":            "badge badge-selesai",
-    "Pending Verifikasi": "badge badge-pending",
-    "Dibatalkan":         "badge badge-dibatalkan",
-  };
 
   return (
     <div className="p-6 sm:p-8 space-y-6">
@@ -107,28 +112,53 @@ export default function SADashboardPage() {
             Lihat semua →
           </a>
         </div>
-        <table className="table-light">
-          <thead>
-            <tr>
-              <th>ID Pengajuan</th>
-              <th>Layanan</th>
-              <th>Departemen</th>
-              <th className="text-center">Status</th>
-              <th className="text-right">Waktu</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recentActivity.map((row) => (
-              <tr key={row.id}>
-                <td><span className="font-mono text-xs text-slate-600">{row.id}</span></td>
-                <td className="text-slate-800 font-medium">{row.layanan}</td>
-                <td><span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{row.dept}</span></td>
-                <td className="text-center"><span className={statusBadge[row.status] ?? "badge badge-default"}>{row.status}</span></td>
-                <td className="text-right text-xs text-slate-400">{row.waktu}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ID Pengajuan</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Layanan</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Departemen</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Prioritas</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Waktu</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {recentActivity.map((row) => (
+                <tr key={row.id} className="hover:bg-slate-50/60 transition-colors group">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 font-mono text-xs font-semibold tracking-wider border border-slate-200/60">
+                      {row.id}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-sm font-semibold text-slate-900 group-hover:text-campus-primary transition-colors">
+                      {row.layanan}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                      {row.dept}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <PrioritasBadge prioritas={row.prioritas} />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <span className={`inline-flex items-center cursor-default px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide border ${getTicketStatusColor(row.status)}`}>
+                      {row.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-xs font-medium text-slate-500">
+                    {row.waktu}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ── Placeholder Chart ── */}

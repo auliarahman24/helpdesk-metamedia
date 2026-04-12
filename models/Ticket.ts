@@ -17,6 +17,7 @@ export interface ITicket extends Document {
   departmentId: string;
   serviceId: mongoose.Types.ObjectId; // Relasi ke Service
   status: string;               // Status saat ini (single field untuk efisiensi query)
+  prioritas: string;            // Tingkat urgensi tiket (Rendah, Sedang, Tinggi, Kritis)
   dynamicData: Map<string, unknown>; // Semua jawaban form (termasuk URL file)
   formSnapshot: unknown[];      // Snapshot layout form saat tiket dibuat (Point-in-Time)
   statusHistory: IStatusHistory[];
@@ -69,6 +70,12 @@ const TicketSchema = new Schema<ITicket>(
       type: String,
       default: "Masuk",
     },
+    prioritas: {
+      type: String,
+      enum: ["Rendah", "Sedang", "Tinggi", "Kritis"],
+      default: "Sedang",
+      required: [true, "Prioritas wajib diisi"],
+    },
     // Map untuk menyimpan semua jawaban form secara dinamis
     // Key = field.id dari formBuilder, Value = string/number/URL file
     dynamicData: {
@@ -103,6 +110,9 @@ TicketSchema.index({ createdAt: -1 });
 
 // Filter utama Admin Departemen: lihat tiket dept-nya yang berstatus tertentu
 TicketSchema.index({ departmentId: 1, status: 1 });
+
+// Filter pencarian dan penyaringan prioritas cepat
+TicketSchema.index({ prioritas: 1 });
 
 // ============================================================================
 // MODEL EXPORT

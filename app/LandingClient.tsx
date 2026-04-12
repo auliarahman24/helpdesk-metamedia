@@ -307,22 +307,7 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
             </div>
           </div>
 
-          {/* Quick links */}
-          <div className="card-light p-4 space-y-2">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Akses Cepat Admin</p>
-            {[
-              { label: "Dashboard Super Admin", href: "/sa-dashboard" },
-              { label: "Pantauan Pengajuan",    href: "/monitoring" },
-              { label: "Manajemen Pengguna",    href: "/users" },
-            ].map((l) => (
-              <a key={l.href} href={l.href} className="flex items-center justify-between py-1.5 text-xs text-slate-600 hover:text-campus-primary group transition-colors">
-                <span>{l.label}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-slate-300 group-hover:text-campus-primary transition-colors" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
-              </a>
-            ))}
-          </div>
+
         </div>
       </div>
 

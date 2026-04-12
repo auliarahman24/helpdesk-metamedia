@@ -19,6 +19,7 @@ interface SearchParams {
   q?: string;
   dept?: string;
   status?: string;
+  prioritas?: string;
 }
 
 export default async function MonitoringPage({
@@ -33,6 +34,7 @@ export default async function MonitoringPage({
   const q      = (params.q      || "").trim();
   const dept   = (params.dept   || "");
   const status = (params.status || "");
+  const prioritas = (params.prioritas || "");
 
   // Ambil semua tiket dari DB (query sudah di ticketActions)
   let tickets = await getAllTickets();
@@ -48,6 +50,7 @@ export default async function MonitoringPage({
   }
   if (dept)   tickets = tickets.filter((t) => t.departmentId === dept);
   if (status) tickets = tickets.filter((t) => t.statusTerkini === status);
+  if (prioritas) tickets = tickets.filter((t) => t.prioritas === prioritas);
 
   // Departemen untuk dropdown filter (dari Master Data)
   await dbConnect();
@@ -68,6 +71,7 @@ export default async function MonitoringPage({
       activeQ={q}
       activeDept={dept}
       activeStatus={status}
+      activePrioritas={prioritas}
       totalAll={tickets.length}
     />
   );

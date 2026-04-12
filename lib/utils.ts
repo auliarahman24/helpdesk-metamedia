@@ -13,24 +13,24 @@ export function getTicketStatusColor(status: string): string {
   switch (status) {
     case "Masuk":
       // Orange: Urgensi, laporan baru butuh perhatian
-      return "bg-orange-500/15 text-orange-400 border-orange-500/20";
+      return "bg-orange-50 text-orange-700 border-orange-200 font-bold";
     case "Diproses":
-      // Sky: Sedang berjalan, aktif, aman
-      return "bg-sky-500/15 text-sky-400 border-sky-500/20";
+      // Blue: Sedang berjalan, aktif, aman
+      return "bg-blue-50 text-blue-700 border-blue-200 font-bold";
     case "Tertunda":
       // Amber: Menunggu tindak lanjut mahasiswa/vendor
-      return "bg-amber-500/15 text-amber-400 border-amber-500/20";
+      return "bg-amber-50 text-amber-700 border-amber-200 font-bold";
     case "Selesai":
       // Emerald: Sukses ditangani teknisi
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/20";
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 font-bold";
     case "Dikonfirmasi":
-      // Violet: Eksklusif, final, tutup buku
-      return "bg-violet-500/15 text-violet-400 border-violet-500/20";
+      // Indigo: Eksklusif, final, tutup buku
+      return "bg-indigo-50 text-indigo-700 border-indigo-200 font-bold";
     case "Ditolak":
     case "Dibatalkan":
       // Rose: Batal/Komplain, lebih elegan dari merah murni
-      return "bg-rose-500/15 text-rose-400 border-rose-500/20";
+      return "bg-rose-50 text-rose-700 border-rose-200 font-bold";
     default:
-      return "bg-slate-500/15 text-slate-400 border-slate-500/20";
+      return "bg-slate-50 text-slate-700 border-slate-200 font-bold";
   }
 }

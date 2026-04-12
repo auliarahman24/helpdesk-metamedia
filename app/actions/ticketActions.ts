@@ -148,6 +148,9 @@ export async function submitTicketFormData(formData: FormData) {
     // 6. Generate custom ticketId
     const ticketId = generateTicketId();
 
+    // Ambil prioritas dari form statis
+    const prioritas = (formData.get("prioritas") as string) || "Sedang";
+
     // 7. Simpan tiket ke database
     const ticket = await Ticket.create({
       ticketId,
@@ -155,6 +158,7 @@ export async function submitTicketFormData(formData: FormData) {
       departmentId: service.departmentId,
       serviceId: new mongoose.Types.ObjectId(serviceId),
       status: "Masuk",
+      prioritas,
       dynamicData,
       // Point-in-Time Snapshot: rekam form persis saat tiket dibuat
       formSnapshot: service.formBuilder.map((f) => ({
@@ -196,6 +200,7 @@ export interface TicketRow {
   serviceId: string;
   namaLayanan: string;           // dari populate Service
   status: string;
+  prioritas: string;
   statusTerkini: string;         // alias status (backward compat UI)
   dynamicData: Record<string, unknown>;
   formSnapshot: FormFieldData[];
@@ -227,6 +232,7 @@ function mapToTicketRow(t: any): TicketRow {
       : String(t.serviceId),
     namaLayanan: t.serviceId?.namaLayanan || "",  // hasil populate
     status: t.status || "Masuk",
+    prioritas: t.prioritas || "Sedang",
     statusTerkini: t.status || "Masuk",
     dynamicData: dynData,
     formSnapshot: (t.formSnapshot || []) as FormFieldData[],
@@ -304,6 +310,7 @@ export interface TicketDetail {
   serviceId: string;
   namaLayanan: string;           // dari populate
   status: string;
+  prioritas: string;
   dynamicData: Record<string, unknown>;
   formSnapshot: FormFieldData[];
   statusHistory: {
@@ -342,6 +349,7 @@ export async function getTicketById(id: string): Promise<TicketDetail | null> {
         : String(ticket.serviceId),
       namaLayanan: (ticket.serviceId as any)?.namaLayanan || "",
       status: ticket.status || "Masuk",
+      prioritas: ticket.prioritas || "Sedang",
       dynamicData: dynData,
       formSnapshot: (ticket.formSnapshot || []) as FormFieldData[],
       statusHistory: (ticket.statusHistory || []).map((h: any) => ({
