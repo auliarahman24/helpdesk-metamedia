@@ -11,18 +11,6 @@ import StatusTimeline from "@/app/components/StatusTimeline";
 // Helpers
 // ============================================================
 
-function formatWaktuShort(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-
 // ============================================================
 // Main Component
 // ============================================================
@@ -164,7 +152,7 @@ export default function TrackingClient({ ticket }: { ticket: TicketDetail }) {
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tanggal Dibuat</p>
-                <p className="text-sm text-slate-800 font-bold">{formatWaktuShort(ticket.createdAt)}</p>
+                <p className="text-sm text-slate-800 font-bold">{new Date(ticket.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
               </div>
             </div>
 
@@ -176,20 +164,20 @@ export default function TrackingClient({ ticket }: { ticket: TicketDetail }) {
                   <h2 className="text-xs font-bold text-slate-800 border-l-4 border-campus-primary pl-3">Detail Laporan</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {snapshotEntries.map(({ id, label, type, value }) => (
-                      <div key={id} className="flex items-start justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 gap-3 shadow-inner">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 shrink-0 mt-0.5">{label}</span>
+                      <div key={id} className="flex flex-col bg-white border border-slate-200 rounded-xl px-4 py-3 gap-1.5 shadow-sm">
+                        <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
                         {/* Jika type file: tampilkan sebagai link/preview gambar */}
                         {type === "file" && typeof value === "string" ? (
                           value.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={value} alt={label} className="max-w-[120px] rounded-lg border border-slate-200 object-cover shadow-sm bg-white p-1" />
+                            <img src={value} alt={label} className="mt-1 max-w-[200px] rounded-lg border border-slate-200 object-cover shadow-sm bg-white p-1" />
                           ) : (
-                            <a href={value} target="_blank" rel="noopener noreferrer" className="text-sm text-campus-primary font-bold underline hover:text-blue-700 text-right">
+                            <a href={value} target="_blank" rel="noopener noreferrer" className="mt-0.5 inline-flex text-sm text-campus-primary font-bold underline hover:text-blue-700">
                               Lihat Dokumen →
                             </a>
                           )
                         ) : (
-                          <span className="text-sm text-slate-900 font-bold text-right leading-relaxed">{String(value)}</span>
+                          <span className="text-sm sm:text-[15px] text-slate-900 font-bold leading-relaxed">{String(value)}</span>
                         )}
                       </div>
                     ))}
@@ -229,8 +217,8 @@ export default function TrackingClient({ ticket }: { ticket: TicketDetail }) {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-6 sm:p-8">
-            <StatusTimeline history={ticket.statusHistory} />
+          <div className="bg-slate-50/20 border border-slate-200 rounded-3xl p-6 sm:p-8">
+            <StatusTimeline history={ticket.statusHistory} compact={false} />
           </div>
         </div>
 
@@ -313,7 +301,7 @@ export default function TrackingClient({ ticket }: { ticket: TicketDetail }) {
           </div>
         )}
 
-        {currentStatus === "Dikonfirmasi" && (
+        {(currentStatus === "Ditutup" || currentStatus === "Ditolak") && (
           <div className="bg-slate-50 border border-slate-200 rounded-3xl p-8 text-center shadow-sm">
             <div className="mx-auto w-14 h-14 rounded-full bg-slate-200 flex items-center justify-center mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-slate-500" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">

@@ -32,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className={`${merriweather.variable} ${jakarta.variable}`} data-scroll-behavior="smooth">
+    <html lang="id" className={`${merriweather.variable} ${jakarta.variable}`}>
       <body className="bg-campus-dark font-sans antialiased min-h-screen">
         {children}
       </body>

@@ -147,7 +147,7 @@ export async function seedDatabase() {
 
     const ticketsData = [];
     const mahasiswaIds = ["22010001", "22010002", "22010003"];
-    const statuses = ["Masuk", "Diproses", "Pending Verifikasi", "Tertunda", "Dikonfirmasi", "Ditolak", "Selesai", "Dibatalkan"];
+    const statuses = ["Masuk", "Diproses", "Pending Verifikasi", "Tertunda", "Ditutup", "Ditolak", "Selesai", "Dibatalkan"];
     
     // Pemetaan data dinamis berdasarkan nama layanan
     const serviceTemplates: Record<string, any> = {
@@ -201,7 +201,7 @@ export async function seedDatabase() {
       if (isPublicGuest) {
         status = "Pending Verifikasi"; // Semua tamu masuk karantina
       } else {
-        const mhsStatuses = ["Masuk", "Diproses", "Tertunda", "Dikonfirmasi", "Ditolak", "Selesai", "Dibatalkan"];
+        const mhsStatuses = ["Masuk", "Diproses", "Tertunda", "Ditutup", "Ditolak", "Selesai", "Dibatalkan"];
         status = mhsStatuses[Math.floor(Math.random() * mhsStatuses.length)];
       }
 
