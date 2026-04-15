@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateTicketStatus, type TicketRow } from "@/app/actions/ticketActions";
+import { updateTicketStatus, claimTicket, type TicketRow } from "@/app/actions/ticketActions";
 import { getTicketStatusColor } from "@/lib/utils";
 import StatusTimeline from "@/app/components/StatusTimeline";
 
@@ -39,15 +39,16 @@ function getAvailableNextStatuses(currentStatus: string): string[] {
   return ["Diproses", "Tertunda", "Selesai", "Ditolak"];
 }
 
-interface WorkspaceTableProps { tickets: TicketRow[]; adminNama: string; }
+interface WorkspaceTableProps { tickets: TicketRow[]; adminNama: string; adminNimNip: string; }
 
-export default function WorkspaceTable({ tickets: initialTickets, adminNama }: WorkspaceTableProps) {
+export default function WorkspaceTable({ tickets: initialTickets, adminNama, adminNimNip }: WorkspaceTableProps) {
   const [tickets, setTickets]           = useState<TicketRow[]>(initialTickets);
   const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(null);
   const [statusBaru, setStatusBaru]     = useState("Diproses");
   const [catatan, setCatatan]           = useState("");
   const [isPending, startTransition]    = useTransition();
   const [result, setResult]             = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [claimingId, setClaimingId]     = useState<string | null>(null);
 
   function openModal(ticket: TicketRow) {
     setSelectedTicket(ticket);
@@ -56,6 +57,30 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
     setResult(null);
   }
   function closeModal() { setSelectedTicket(null); setResult(null); }
+
+  // ── Smart One-Click Manage: Gabungkan Klaim & Buka Modal ──
+  function handleManageTicket(ticket: TicketRow) {
+    // Jika belum diklaim, klaim dulu secara otomatis
+    if (!ticket.assigneeId && ticket.statusTerkini === "Masuk") {
+      setClaimingId(ticket._id);
+      startTransition(async () => {
+        const res = await claimTicket(ticket._id);
+        if (res.error) {
+          alert(res.error);
+        } else {
+          // Update state local
+          const updatedTicket = { ...ticket, status: "Diproses", statusTerkini: "Diproses", assigneeId: adminNimNip };
+          setTickets((prev) => prev.map((t) => t._id === ticket._id ? updatedTicket : t));
+          // Langsung buka modal pengerjaan
+          openModal(updatedTicket);
+        }
+        setClaimingId(null);
+      });
+    } else {
+      // Jika sudah diklaim (oleh saya atau orang lain/sudah terpola), langsung buka modal
+      openModal(ticket);
+    }
+  }
 
   function handleUpdate() {
     if (!selectedTicket) return;
@@ -72,7 +97,7 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
         setTickets((prev) =>
           prev.map((t) =>
             t._id === selectedTicket._id
-              ? { ...t, statusTerkini: statusBaru, statusHistory: [...t.statusHistory, { status: statusBaru, timestamp: new Date().toISOString(), actor: adminNama, note: catatan }] }
+              ? { ...t, status: statusBaru, statusTerkini: statusBaru, statusHistory: [...t.statusHistory, { status: statusBaru, timestamp: new Date().toISOString(), actor: adminNama, note: catatan }] }
               : t
           )
         );
@@ -82,7 +107,7 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
   }
 
   const isLocked       = selectedTicket?.statusTerkini === "Selesai" || selectedTicket?.statusTerkini === "Dikonfirmasi";
-  const isTerminal     = selectedTicket?.statusTerkini === "Ditolak" || selectedTicket?.statusTerkini === "Ditutup";
+  const isTerminal     = ["Ditutup", "Ditolak", "Dibatalkan"].includes(selectedTicket?.statusTerkini || "");
   const isProgressOnly = selectedTicket ? statusBaru === selectedTicket.statusTerkini : false;
   const isNoteRequired = isProgressOnly || statusBaru === "Tertunda" || statusBaru === "Ditolak";
   const isUpdateDisabled = isPending || (isNoteRequired && !catatan.trim());
@@ -105,11 +130,11 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Pengajuan</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Kategori Layanan</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Waktu Masuk</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">PELAPOR</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">WAKTU MASUK</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Prioritas</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Aksi</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status Saat Ini</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
@@ -124,9 +149,17 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
                       </p>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm font-medium text-slate-700">
-                        {ticket.namaLayanan || ticket.departmentId}
-                      </span>
+                      {ticket.isGuest ? (
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{ticket.guestName || "Tamu"}</p>
+                          <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-200">Tamu Publik</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{ticket.mahasiswaNama || "—"}</p>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{ticket.mahasiswaId}</p>
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-xs font-medium text-slate-600">
@@ -141,15 +174,31 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
                         {ticket.statusTerkini}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
                       <button
-                        onClick={() => openModal(ticket)}
-                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 hover:border-slate-300 shadow-sm transition-all duration-150 cursor-pointer"
+                        onClick={() => handleManageTicket(ticket)}
+                        disabled={claimingId === ticket._id || !!(ticket.assigneeId && ticket.assigneeId !== adminNimNip)}
+                        className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl border shadow-sm transition-all duration-150 cursor-pointer disabled:opacity-50 ${
+                           ticket.assigneeId && ticket.assigneeId !== adminNimNip
+                           ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
+                           : "bg-campus-primary hover:bg-blue-700 text-white border-blue-600 hover:shadow-md"
+                        }`}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-campus-primary" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                        </svg>
-                        Proses
+                        {claimingId === ticket._id ? (
+                           <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                           </svg>
+                        ) : ticket.assigneeId && ticket.assigneeId !== adminNimNip ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                             <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                          </svg>
+                        )}
+                        {claimingId === ticket._id ? "Proses..." : ticket.assigneeId && ticket.assigneeId !== adminNimNip ? "Terkunci" : "Kelola Laporan"}
                       </button>
                     </td>
                   </tr>
@@ -256,7 +305,7 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama }: W
               {/* §3 Update Status */}
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 border-l-4 border-blue-500 pl-3">
-                  Perbarui Status Khusus Teknisi
+                  Perbarui Status Tiket
                 </h3>
 
                 {isLocked ? (

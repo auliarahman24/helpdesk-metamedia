@@ -1,37 +1,69 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateUser, importUsersCsvMock } from "@/app/actions/userActions";
+import { updateUser, createUser, softDeleteUser, importUsersCsvMock } from "@/app/actions/userActions";
 
-export default function UsersClient({ initialUsers }: { initialUsers: any[] }) {
+export default function UsersClient({ initialUsers, initialDepartments }: { initialUsers: any[], initialDepartments: any[] }) {
   const [users, setUsers]         = useState(initialUsers);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editUser, setEditUser]   = useState<any>(null);
-  const [formData, setFormData]   = useState({ nim_nip: "", nama: "", role: "mahasiswa", password: "" });
+  const [formData, setFormData]   = useState({ nim_nip: "", nama: "", role: "mahasiswa", password: "", departmentId: "" });
   const [isPending, startTransition] = useTransition();
   const [resultMsg, setResultMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const openEditModal = (user: any) => {
     setEditUser(user);
-    setFormData({ nim_nip: user.nim_nip, nama: user.nama, role: user.role, password: "" });
+    setFormData({ nim_nip: user.nim_nip, nama: user.nama, role: user.role, password: "", departmentId: user.departmentId || "" });
     setResultMsg(null);
     setIsModalOpen(true);
   };
 
+  const handleDelete = (user: any) => {
+    if (window.confirm("Hapus pengguna ini? Tiket yang pernah dibuat atau diproses oleh pengguna ini akan tetap tersimpan aman di riwayat.")) {
+      startTransition(async () => {
+        const res = await softDeleteUser(user.nim_nip);
+        if (res.success) {
+          // Secara natural Server Acton revalidatePath akan sync dengan UI, atau kita bisa force reload state:
+          setUsers(users.filter(u => u.nim_nip !== user.nim_nip));
+        } else {
+          alert(res.error || "Gagal menghapus pengguna.");
+        }
+      });
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editUser) { setIsModalOpen(false); return; }
     setResultMsg(null);
     startTransition(async () => {
-      const payload: any = { nama: formData.nama, role: formData.role };
+      const payload: any = { 
+        nim_nip: formData.nim_nip,
+        nama: formData.nama, 
+        role: formData.role 
+      };
       if (formData.password) payload.password = formData.password;
-      const res = await updateUser(formData.nim_nip, payload);
-      if (res.success) {
-        setResultMsg({ type: "success", text: res.message || "Berhasil di-update." });
-        setUsers(users.map(u => u.nim_nip === formData.nim_nip ? { ...u, nama: formData.nama, role: formData.role } : u));
-        setTimeout(() => setIsModalOpen(false), 1500);
+      if (formData.role === "admin_departemen" && formData.departmentId) {
+        payload.departmentId = formData.departmentId;
+      }
+
+      if (editUser) {
+        const res = await updateUser(formData.nim_nip, payload);
+        if (res.success) {
+          setResultMsg({ type: "success", text: res.message || "Berhasil di-update." });
+          setUsers(users.map(u => u.nim_nip === formData.nim_nip ? { ...u, nama: formData.nama, role: formData.role, departmentId: payload.departmentId } : u));
+          setTimeout(() => setIsModalOpen(false), 1500);
+        } else {
+          setResultMsg({ type: "error", text: res.error || "Gagal mengupdate pengguna." });
+        }
       } else {
-        setResultMsg({ type: "error", text: res.error || "Gagal mengupdate pengguna." });
+        const res = await createUser(payload);
+        if (res.success) {
+          setResultMsg({ type: "success", text: res.message || "Pengguna berhasil ditambahkan." });
+          setUsers([{ ...payload, _id: Date.now().toString() }, ...users]);
+          setTimeout(() => setIsModalOpen(false), 1500);
+        } else {
+          setResultMsg({ type: "error", text: res.error || "Gagal menambahkan pengguna." });
+        }
       }
     });
   };
@@ -82,7 +114,7 @@ export default function UsersClient({ initialUsers }: { initialUsers: any[] }) {
             Impor CSV
           </button>
           <button
-            onClick={() => { setEditUser(null); setFormData({ nim_nip: "", nama: "", role: "mahasiswa", password: "" }); setResultMsg(null); setIsModalOpen(true); }}
+            onClick={() => { setEditUser(null); setFormData({ nim_nip: "", nama: "", role: "mahasiswa", password: "", departmentId: "" }); setResultMsg(null); setIsModalOpen(true); }}
             className="flex items-center justify-center gap-2 px-5 py-2.5 bg-campus-primary hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-all shadow-sm hover:shadow-md cursor-pointer"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -103,6 +135,7 @@ export default function UsersClient({ initialUsers }: { initialUsers: any[] }) {
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Identitas Induk (NIM / NIP)</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nama Lengkap</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Role Otorisasi</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Departemen</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
               </tr>
             </thead>
@@ -142,16 +175,36 @@ export default function UsersClient({ initialUsers }: { initialUsers: any[] }) {
                       {roleLabel[user.role] ?? user.role}
                     </span>
                   </td>
+                  <td className="px-6 py-4">
+                    {user.role === "admin_departemen" ? (
+                      <span className="text-xs text-slate-600 font-bold bg-slate-100 px-2 py-1 rounded border border-slate-200">
+                        {user.departmentId || "—"}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider italic">N/A</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() => openEditModal(user)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 shadow-sm transition-all duration-200 cursor-pointer"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                      </svg>
-                      Edit Detail
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => openEditModal(user)}
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 shadow-sm transition-all duration-200 cursor-pointer"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                        </svg>
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(user)}
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold rounded-xl border border-rose-200 shadow-sm transition-all duration-200 cursor-pointer"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-rose-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                        </svg>
+                        Hapus
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -230,6 +283,26 @@ export default function UsersClient({ initialUsers }: { initialUsers: any[] }) {
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
                   </div>
                 </div>
+
+                {formData.role === "admin_departemen" && (
+                  <div className="relative space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Departemen Penugasan</label>
+                    <select 
+                      value={formData.departmentId} 
+                      onChange={e => setFormData({ ...formData, departmentId: e.target.value })} 
+                      className="w-full px-4 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-campus-primary/10 focus:border-campus-primary outline-none text-sm transition-all text-slate-800 font-semibold appearance-none cursor-pointer shadow-sm"
+                      required
+                    >
+                      <option value="" disabled>-- Pilih Departemen --</option>
+                      {initialDepartments.map((dept) => (
+                        <option key={dept.departmentId} value={dept.departmentId}>{dept.namaDepartemen} ({dept.departmentId})</option>
+                      ))}
+                    </select>
+                    <div className="absolute top-[28px] right-3 flex items-center pointer-events-none text-slate-400">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
+                    </div>
+                  </div>
+                )}
                 
                 {editUser && (
                   <div className="space-y-1.5 pt-3 mt-3 border-t border-slate-100">

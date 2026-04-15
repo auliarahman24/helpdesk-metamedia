@@ -185,11 +185,6 @@ export default function StatusTimeline({ history, compact = false }: StatusTimel
                       Terkini
                     </span>
                   )}
-                  {isFirst && !isLast && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-black uppercase tracking-widest shadow-sm">
-                      Awal
-                    </span>
-                  )}
                 </div>
                 
                 {/* Aktor */}
@@ -199,16 +194,26 @@ export default function StatusTimeline({ history, compact = false }: StatusTimel
                 </p>
                 
                 {/* Keterangan / Note Bubble */}
-                {entry.note && (
-                  <div className="mt-3.5 flex items-start gap-2.5 bg-slate-50 hover:bg-slate-100/70 transition-colors border border-slate-200 rounded-xl px-4 py-3 sm:py-3.5 shadow-inner">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                    <p className="text-xs sm:text-[13px] text-slate-600 font-medium italic leading-relaxed">
-                      {entry.note}
-                    </p>
-                  </div>
-                )}
+                {(() => {
+                  const catatan = entry.note?.trim();
+                  if (!catatan) return null;
+                  
+                  // Filter pesan bawaan sistem (default message)
+                  const isDefaultMsg = catatan === "Laporan berhasil dibuat." || catatan.includes("otomatis");
+                  
+                  if (isDefaultMsg) return null;
+
+                  return (
+                    <div className="mt-3.5 flex items-start gap-2.5 bg-slate-50 hover:bg-slate-100/70 transition-colors border border-slate-200 rounded-xl px-4 py-3 sm:py-3.5 shadow-inner">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      <p className="text-xs sm:text-[13px] text-slate-600 font-medium italic leading-relaxed">
+                        {catatan}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>

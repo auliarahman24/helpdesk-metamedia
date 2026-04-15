@@ -20,6 +20,9 @@ export interface IService extends Document {
   isPublic: boolean;        // true = bisa diakses tamu/publik tanpa login
   defaultPrioritas: string; // prioritas SLA berdasarkan layanan
   formBuilder: IFormField[];
+  isDeleted: boolean;
+  deletedAt?: Date;
+  deletedBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -91,6 +94,18 @@ const ServiceSchema = new Schema<IService>(
     formBuilder: {
       type: [FormFieldSchema],
       default: [],
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: String,
+      default: null,
     },
   },
   {

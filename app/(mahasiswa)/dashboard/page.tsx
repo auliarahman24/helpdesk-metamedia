@@ -1,16 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import dbConnect from "@/lib/mongodb";
-import Ticket from "@/models/Ticket";
-
-async function getSession() {
-  const cookieStore = await cookies();
-  const sc = cookieStore.get("user_session");
-  if (!sc) return null;
-  try { return JSON.parse(sc.value) as { nim_nip: string; role: string; nama: string }; }
-  catch { return null; }
-}
+import { getMyTickets } from "@/app/actions/ticketActions";
 
 function formatTanggal(date: Date) {
   return new Date(date).toLocaleDateString("id-ID", {
@@ -34,20 +25,21 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function DashboardPage() {
-  const session = await getSession();
-  if (!session) redirect("/");
+  const cookieStore = await cookies();
+  const sc = cookieStore.get("user_session");
+  if (!sc) redirect("/");
 
-  await dbConnect();
+  let session: { nim_nip: string; role: string; nama: string };
+  try { session = JSON.parse(sc.value); }
+  catch { redirect("/"); }
 
-  const tickets = await Ticket.find({ mahasiswaId: session.nim_nip })
-    .populate("serviceId", "namaLayanan")
-    .sort({ createdAt: -1 })
-    .lean();
+  // ── Server Action: menjalankan applyAutoCloseSLA() + fetch tiket ──
+  const tickets = await getMyTickets();
 
   // Statistik
   const total    = tickets.length;
-  const diproses = tickets.filter((t) => (t as any).status === "Diproses").length;
-  const selesai  = tickets.filter((t) => (t as any).status === "Selesai").length;
+  const diproses = tickets.filter((t) => t.status === "Diproses").length;
+  const selesai  = tickets.filter((t) => t.status === "Selesai").length;
 
   return (
     <div className="min-h-screen bg-bg-page">
@@ -151,22 +143,15 @@ export default async function DashboardPage() {
             /* CARD GRID 3 kolom */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {tickets.map((ticket) => {
-                const namaLayanan = (ticket.serviceId as any)?.namaLayanan || ticket.departmentId || "Layanan";
-                const currentStatus = (ticket as any).status ||
-                  (ticket.statusHistory?.length > 0
-                    ? ticket.statusHistory[ticket.statusHistory.length - 1].status
-                    : "Masuk");
-                const ticketId = (ticket as any).ticketId || String(ticket._id).slice(-8).toUpperCase();
-
                 return (
                   <Link
-                    key={String(ticket._id)}
-                    href={`/tracking/${String(ticket._id)}`}
+                    key={ticket._id}
+                    href={`/tracking/${ticket._id}`}
                     className="ticket-card group"
                   >
                     {/* Status badge top */}
                     <div className="flex items-center justify-between mb-3">
-                      <StatusBadge status={currentStatus} />
+                      <StatusBadge status={ticket.status} />
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-300 group-hover:text-campus-primary transition-colors" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                       </svg>
@@ -174,11 +159,11 @@ export default async function DashboardPage() {
 
                     {/* Nama layanan */}
                     <h3 className="text-slate-900 font-semibold text-sm leading-snug truncate group-hover:text-campus-primary transition-colors">
-                      {namaLayanan}
+                      {ticket.namaLayanan || ticket.departmentId || "Layanan"}
                     </h3>
 
                     {/* Ticket ID */}
-                    <p className="text-slate-400 text-[11px] font-mono mt-1">{ticketId}</p>
+                    <p className="text-slate-400 text-[11px] font-mono mt-1">{ticket.ticketId}</p>
 
                     {/* Divider */}
                     <div className="my-3 border-t border-slate-100" />
@@ -186,7 +171,7 @@ export default async function DashboardPage() {
                     {/* Meta */}
                     <div className="flex items-center justify-between text-xs text-slate-400">
                       <span>{ticket.departmentId}</span>
-                      <span>{formatTanggal(ticket.createdAt)}</span>
+                      <span>{formatTanggal(new Date(ticket.waktuMasuk))}</span>
                     </div>
                   </Link>
                 );

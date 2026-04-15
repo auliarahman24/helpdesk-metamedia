@@ -3,6 +3,8 @@
 import { z } from "zod";
 import dbConnect from "@/lib/mongodb";
 import Service from "@/models/Service";
+import { getSession } from "@/app/actions/authActions";
+import { revalidatePath } from "next/cache";
 
 // ============================================================
 // Zod Schema — validasi struktur form service (tipe baru)
@@ -25,6 +27,7 @@ const FormFieldSchema = z.object({
 const CreateServiceSchema = z.object({
   namaLayanan: z.string().min(1, "Nama layanan wajib diisi"),
   departmentId: z.string().min(1, "Department ID wajib diisi"),
+  isPublic: z.boolean().default(false),
   defaultPrioritas: z.enum(["Rendah", "Sedang", "Tinggi", "Kritis"]).default("Sedang"),
   formBuilder: z.array(FormFieldSchema).default([]),
 });
@@ -40,6 +43,7 @@ export interface ServiceRow {
   departmentId: string;
   defaultPrioritas: "Rendah" | "Sedang" | "Tinggi" | "Kritis";
   isActive: boolean;
+  isPublic: boolean;
   formBuilderCount: number;
   formBuilder: Array<{
     id: string;
@@ -57,7 +61,7 @@ export interface ServiceRow {
 export async function getAllServices(): Promise<ServiceRow[]> {
   await dbConnect();
 
-  const services = await Service.find({}).sort({ createdAt: -1 }).lean();
+  const services = await Service.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 }).lean();
 
   return services.map((s) => ({
     _id: String(s._id),
@@ -65,6 +69,7 @@ export async function getAllServices(): Promise<ServiceRow[]> {
     departmentId: s.departmentId,
     defaultPrioritas: (s.defaultPrioritas as "Rendah" | "Sedang" | "Tinggi" | "Kritis") || "Sedang",
     isActive: s.isActive,
+    isPublic: s.isPublic || false,
     formBuilderCount: s.formBuilder?.length || 0,
     formBuilder: (s.formBuilder || []).map((f) => ({
       id: f.id,
@@ -113,6 +118,7 @@ export async function createService(data: CreateServiceInput) {
       departmentId: parsed.data.departmentId,
       defaultPrioritas: parsed.data.defaultPrioritas,
       isActive: true,
+      isPublic: parsed.data.isPublic,
       formBuilder: parsed.data.formBuilder.map((f) => ({
         id: f.id,
         label: f.label,
@@ -194,6 +200,7 @@ export async function updateService(serviceId: string, data: CreateServiceInput)
     service.namaLayanan = parsed.data.namaLayanan;
     service.departmentId = parsed.data.departmentId;
     service.defaultPrioritas = parsed.data.defaultPrioritas;
+    service.isPublic = parsed.data.isPublic;
     service.formBuilder = parsed.data.formBuilder.map((f) => ({
       id: f.id,
       label: f.label,
@@ -211,5 +218,45 @@ export async function updateService(serviceId: string, data: CreateServiceInput)
   } catch (error) {
     console.error("Update service error:", error);
     return { error: "Terjadi kesalahan server saat memperbarui layanan." };
+  }
+}
+
+// ============================================================
+// Soft Delete Service — dengan jejak audit
+//
+// Logika:
+// - Layanan berhenti muncul di form pengajuan.
+// - Tiket lama TIDAK terpengaruh (formSnapshot sudah menyimpan
+//   layout form saat tiket dibuat).
+// ============================================================
+export async function softDeleteService(serviceId: string) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "superadmin") {
+      return { error: "Hanya Super Admin yang dapat menghapus layanan." };
+    }
+
+    await dbConnect();
+
+    const service = await Service.findOne({ _id: serviceId, isDeleted: { $ne: true } });
+    if (!service) {
+      return { error: "Layanan tidak ditemukan." };
+    }
+
+    service.isDeleted = true;
+    service.isActive = false;
+    service.deletedAt = new Date();
+    service.deletedBy = session.nim_nip;
+    await service.save();
+
+    revalidatePath("/services");
+
+    return {
+      success: true,
+      message: `Layanan "${service.namaLayanan}" berhasil dihapus. Tiket lama tidak terpengaruh.`,
+    };
+  } catch (error) {
+    console.error("Soft delete service error:", error);
+    return { error: "Terjadi kesalahan server saat menghapus layanan." };
   }
 }

@@ -7,6 +7,7 @@ import dbConnect from "@/lib/mongodb";
 import Service from "@/models/Service";
 import Ticket from "@/models/Ticket";
 import mongoose from "mongoose";
+import { getSession } from "@/app/actions/authActions";
 
 // ============================================================
 // AUTO-CLOSE SLA (Lazy Evaluation)
@@ -76,7 +77,7 @@ export interface ServiceData {
 export async function getActiveServices(): Promise<ServiceData[]> {
   await dbConnect();
 
-  const services = await Service.find({ isActive: true })
+  const services = await Service.find({ isActive: true, isDeleted: { $ne: true } })
     .select("namaLayanan departmentId formBuilder")
     .lean();
 
@@ -179,6 +180,7 @@ export async function submitTicketFormData(formData: FormData) {
     const ticket = await Ticket.create({
       ticketId,
       mahasiswaId: session.nim_nip,   // ← injeksi dari session, bukan form input
+      mahasiswaNama: session.nama,    // ← denormalized: nama pelapor disimpan langsung
       departmentId: service.departmentId,
       serviceId: new mongoose.Types.ObjectId(serviceId),
       status: "Masuk",
@@ -196,7 +198,7 @@ export async function submitTicketFormData(formData: FormData) {
         {
           status: "Masuk",
           actor: "sistem",
-          note: "Laporan berhasil dibuat.",
+          note: "",
           timestamp: new Date(),
         },
       ],
@@ -220,11 +222,13 @@ export interface TicketRow {
   _id: string;
   ticketId: string;
   mahasiswaId: string;
+  mahasiswaNama: string;
   departmentId: string;
   serviceId: string;
   namaLayanan: string;           // dari populate Service
   status: string;
   prioritas: string;
+  assigneeId: string | null;
   isGuest?: boolean;
   guestName?: string;
   guestContact?: string;
@@ -253,6 +257,7 @@ function mapToTicketRow(t: any): TicketRow {
     _id: String(t._id),
     ticketId: t.ticketId || "",
     mahasiswaId: t.mahasiswaId || "",
+    mahasiswaNama: t.mahasiswaNama || "",
     departmentId: t.departmentId || "",
     serviceId: t.serviceId?._id
       ? String(t.serviceId._id)
@@ -260,6 +265,7 @@ function mapToTicketRow(t: any): TicketRow {
     namaLayanan: t.serviceId?.namaLayanan || "",  // hasil populate
     status: t.status || "Masuk",
     prioritas: t.prioritas || "Sedang",
+    assigneeId: t.assigneeId || null,
     isGuest: t.isGuest || false,
     guestName: t.guestName || "",
     guestContact: t.guestContact || "",
@@ -290,6 +296,7 @@ export async function getTicketsByDepartment(
   await applyAutoCloseSLA();
 
   const tickets = await Ticket.find({ departmentId })
+    .select("-dynamicData -formSnapshot")  // ← optimasi: exclude field berat dari tabel
     .populate("serviceId", "namaLayanan")  // join service name
     .sort({ createdAt: -1 })
     .lean();
@@ -325,6 +332,7 @@ export async function getMyTickets(): Promise<TicketRow[]> {
   await applyAutoCloseSLA();
 
   const tickets = await Ticket.find({ mahasiswaId: session.nim_nip })
+    .select("-dynamicData -formSnapshot -statusHistory")
     .populate("serviceId", "namaLayanan")
     .sort({ createdAt: -1 })
     .lean();
@@ -360,12 +368,23 @@ export interface TicketDetail {
 // ============================================================
 export async function getTicketById(id: string): Promise<TicketDetail | null> {
   try {
+    // ── Security: Validasi sesi pengguna (IDOR Patch) ──
+    const session = await getSession();
+    if (!session) return null; // Unauthorized — tidak ada sesi aktif
+
     await dbConnect();
 
     const ticket = await Ticket.findById(id)
       .populate("serviceId", "namaLayanan")
       .lean();
     if (!ticket) return null;
+
+    // ── Security: Ownership check untuk mahasiswa ──
+    // Mahasiswa hanya bisa melihat tiket miliknya sendiri
+    if (session.role === "mahasiswa" && ticket.mahasiswaId !== session.nim_nip) {
+      return null; // Forbidden — triggers notFound() di halaman pemanggil
+    }
+    // admin_departemen & superadmin: akses penuh ke semua tiket
 
     const dynData: Record<string, unknown> =
       ticket.dynamicData instanceof Map
@@ -418,12 +437,26 @@ export async function updateTicketStatus(
       return { error: "Catatan wajib diisi saat menunda tiket." };
     }
 
+    // ── Security: Validasi sesi admin ──
+    const session = await getSession();
+    if (!session) return { error: "Sesi tidak valid. Silakan login ulang." };
+
     await dbConnect();
+
+    // ── Guardrail: Cek kepemilikan tiket (assignee) ──
+    const ticket = await Ticket.findById(ticketId);
+    if (!ticket) return { error: "Tiket tidak ditemukan." };
+
+    if (ticket.assigneeId && ticket.assigneeId !== session.nim_nip) {
+      return {
+        error: `Akses ditolak. Tiket ini sedang ditangani oleh admin lain.`,
+      };
+    }
 
     const result = await Ticket.findByIdAndUpdate(
       ticketId,
       {
-        $set: { status: statusBaru },    // update status langsung
+        $set: { status: statusBaru },
         $push: {
           statusHistory: {
             status: statusBaru,
@@ -446,6 +479,68 @@ export async function updateTicketStatus(
     };
   } catch (error) {
     console.error("Update ticket status error:", error);
+    return { error: "Terjadi kesalahan server. Silakan coba lagi." };
+  }
+}
+
+// ============================================================
+// Claim Tiket — Admin "Ambil Alih" tiket dari antrian
+// Menggunakan atomic findOneAndUpdate untuk mencegah race condition
+// ============================================================
+export async function claimTicket(ticketId: string) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "admin_departemen") {
+      return { error: "Hanya admin departemen yang dapat mengambil alih tiket." };
+    }
+
+    await dbConnect();
+
+    // Atomic operation: hanya berhasil jika assigneeId masih null
+    const result = await Ticket.findOneAndUpdate(
+      {
+        _id: ticketId,
+        assigneeId: null,           // ← guard: hanya jika belum di-claim
+        status: "Masuk",            // ← guard: hanya tiket baru
+      },
+      {
+        $set: {
+          assigneeId: session.nim_nip,
+          status: "Diproses",
+        },
+        $push: {
+          statusHistory: {
+            status: "Diproses",
+            timestamp: new Date(),
+            actor: session.nama,
+            note: `Tiket diambil alih oleh ${session.nama}.`,
+          },
+        },
+      },
+      { returnDocument: "after" }
+    );
+
+    if (!result) {
+      // Cek alasan gagal untuk pesan error yang informatif
+      const existing = await Ticket.findById(ticketId).lean();
+      if (!existing) {
+        return { error: "Tiket tidak ditemukan." };
+      }
+      if (existing.assigneeId) {
+        return { error: "Tiket sudah diambil alih oleh admin lain." };
+      }
+      if (existing.status !== "Masuk") {
+        return { error: `Tiket tidak bisa diambil karena berstatus "${existing.status}".` };
+      }
+      return { error: "Gagal mengambil tiket. Silakan coba lagi." };
+    }
+
+    return {
+      success: true,
+      message: `Tiket berhasil diambil alih oleh ${session.nama}.`,
+    };
+  } catch (error) {
+    console.error("Claim ticket error:", error);
     return { error: "Terjadi kesalahan server. Silakan coba lagi." };
   }
 }

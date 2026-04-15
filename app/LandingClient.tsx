@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useCallback } from "react";
 import { loginUser } from "@/app/actions/authActions";
-import { submitPublicTicket, type PublicFeedItem, trackPublicTicket, guestConfirmTicketClosed, guestReopenTicket } from "@/app/actions/publicActions";
+import { submitPublicTicket, type PublicFeedItem, trackPublicTicket, guestConfirmTicketClosed, guestReopenTicket, getPublicServices } from "@/app/actions/publicActions";
 
 // ─── Helpers ────────────────────────────────────────────────
 function formatTanggal(iso: string) {
@@ -22,6 +22,8 @@ const STATUS_MAP: Record<string, { bg: string; text: string; dot: string }> = {
   "Selesai":            { bg: "bg-green-100",  text: "text-green-800",  dot: "bg-green-500" },
   "Pending Verifikasi": { bg: "bg-purple-100", text: "text-purple-800", dot: "bg-purple-500" },
   "Dibatalkan":         { bg: "bg-red-100",    text: "text-red-800",    dot: "bg-red-500" },
+  "Ditutup":            { bg: "bg-slate-100",   text: "text-slate-800",  dot: "bg-slate-500" },
+  "Komplain":           { bg: "bg-rose-100",    text: "text-rose-800",   dot: "bg-rose-500" },
 };
 
 function StatusPill({ status }: { status: string }) {
@@ -42,6 +44,7 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, startLogin]   = useTransition();
   const [showModal, setShowModal]   = useState(false);
+  const [formStep, setFormStep]     = useState<1 | 2 | 3>(1);
   const [services, setServices]     = useState<PublicService[]>([]);
   const [svcLoading, setSvcLoading] = useState(false);
   const [selectedSvc, setSelectedSvc] = useState<PublicService | null>(null);
@@ -74,15 +77,18 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
 
   const openModal = useCallback(async () => {
     setShowModal(true);
+    setFormStep(1);
     setSubmitResult(null);
     setSelectedSvc(null);
     setSvcLoading(true);
     try {
-      const res = await fetch("/api/public-services");
-      if (!res.ok) throw new Error();
-      setServices(await res.json());
-    } catch { setServices([]); }
-    finally { setSvcLoading(false); }
+      const data = await getPublicServices();
+      setServices(data);
+    } catch { 
+      setServices([]); 
+    } finally { 
+      setSvcLoading(false); 
+    }
   }, []);
 
   const closeModal = useCallback(() => {
@@ -101,7 +107,10 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
     startSubmit(async () => {
       const result = await submitPublicTicket(fd);
       setSubmitResult(result);
-      if (result.success) formRef.current?.reset();
+      if (result.success) {
+        setFormStep(3);
+        formRef.current?.reset();
+      }
     });
   }
 
@@ -390,7 +399,7 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
                   className="input-light py-2 text-sm"
                 />
                 <input
-                  type="text" required placeholder="PIN Rahasia (MET-...)"
+                  type="text" required placeholder="PIN Rahasia (6 digit angka)"
                   value={trackPin} onChange={e => setTrackPin(e.target.value)}
                   className="input-light py-2 text-sm"
                 />
@@ -447,48 +456,62 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
 
             {/* Body */}
             <div className="overflow-y-auto flex-1 px-6 py-5">
-              {submitResult?.success ? (
-                /* Sukses */
-                <div className="text-center py-6 space-y-5">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center mx-auto shadow-lg shadow-green-500/30">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              {formStep === 3 && submitResult?.success ? (
+                /* Sukses - High Visibility Warning */
+                <div className="text-center py-6 space-y-5 animate-in fade-in zoom-in duration-300">
+                  <div className="w-16 h-16 rounded-3xl bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/30">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
+                  
                   <div>
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Laporan Berhasil!</h3>
-                    <p className="text-sm text-slate-500 mt-1 px-4">{submitResult.message} Silakan simpan kredensial di bawah ini untuk melacak status pelaporan Anda.</p>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">Laporan Terkirim!</h3>
+                    <p className="text-sm text-slate-500 mt-1">Laporan Anda telah masuk ke sistem kami.</p>
+                  </div>
+
+                  {/* ⚠ WARNING BOX ⚠ */}
+                  <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl p-4 text-left space-y-3 ring-4 ring-rose-500/5">
+                    <div className="flex items-center gap-2 text-rose-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                      <span className="font-black text-xs uppercase tracking-widest">Peringatan Penting!</span>
+                    </div>
+                    <p className="text-xs text-rose-600 font-bold leading-relaxed">
+                      Sistem kami tidak mengirimkan email otomatis. Silakan <span className="bg-rose-200 px-1 rounded">SCREENSHOT</span> atau <span className="bg-rose-200 px-1 rounded">CATAT</span> ID dan PIN di bawah ini untuk melihat balasan admin nanti.
+                    </p>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-3 pb-2 pt-1 text-left px-4">
-                    <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-4 relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <svg className="w-8 h-8 text-amber-900" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>
-                      </div>
-                      <p className="text-[10px] uppercase tracking-widest font-bold text-amber-800/60 mb-1">ID Tiket</p>
-                      <p className="font-mono text-sm font-black text-amber-900">{submitResult.ticketId}</p>
+                  <div className="grid grid-cols-2 gap-3 pb-2 pt-1 text-left">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 relative overflow-hidden group">
+                      <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">ID Tiket</p>
+                      <p className="font-mono text-base font-black text-campus-primary">{submitResult.ticketId}</p>
                     </div>
                     
-                    <div className="bg-red-50/50 border border-red-100 rounded-xl p-4 relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <svg className="w-8 h-8 text-red-900" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                      </div>
-                      <p className="text-[10px] uppercase tracking-widest font-bold text-red-800/60 mb-1">PIN Rahasia</p>
-                      <p className="font-mono text-sm font-black text-red-900">{submitResult.guestPin}</p>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 relative overflow-hidden group">
+                      <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">PIN Rahasia</p>
+                      <p className="font-mono text-base font-black text-rose-600">{submitResult.guestPin}</p>
                     </div>
                   </div>
 
-                  <div className="px-4">
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-start gap-2.5 text-left mb-4">
-                      <svg className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Gunakan ID dan PIN di atas pada menu <strong>Lacak Laporan Anda</strong> di halaman utama. JANGAN berikan PIN ini kepada siapapun.</p>
-                    </div>
-                    <button onClick={closeModal} className="w-full btn-primary bg-slate-900 hover:bg-slate-800 py-3">Tutup & Kembali</button>
-                  </div>
+                  <button 
+                    onClick={closeModal} 
+                    className="w-full btn-primary bg-slate-900 border-b-4 border-slate-950 py-4 shadow-lg hover:translate-y-[2px] transition-all"
+                  >
+                    Saya Sudah Mencatat PIN
+                  </button>
                 </div>
               ) : (
-                /* Form */
+                /* Wizard Form Step 1 & 2 */
                 <form ref={formRef} onSubmit={handlePublicSubmit} className="space-y-4">
+                  {/* Step Progress */}
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${formStep >= 1 ? 'bg-campus-primary shadow-[0_0_8px_rgba(var(--campus-primary-rgb),0.5)]' : 'bg-slate-100'}`} />
+                    <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${formStep >= 2 ? 'bg-campus-primary shadow-[0_0_8px_rgba(var(--campus-primary-rgb),0.5)]' : 'bg-slate-100'}`} />
+                    <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${formStep >= 3 ? 'bg-campus-primary shadow-[0_0_8px_rgba(var(--campus-primary-rgb),0.5)]' : 'bg-slate-100'}`} />
+                  </div>
+
                   {submitResult?.error && (
                     <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5 text-sm text-red-700">
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -498,99 +521,92 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
                     </div>
                   )}
 
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      Nama Lengkap Pelapor <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="guestName" name="guestName" type="text" required
-                      placeholder="Masukkan nama lengkap"
-                      className="input-light"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      WhatsApp / Email Kontak <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="guestContact" name="guestContact" type="text" required
-                      placeholder="Contoh: 081234567890 atau nama@email.com"
-                      className="input-light"
-                    />
-                    <p className="text-[11px] text-slate-400">Digunakan jika admin perlu menghubungi Anda.</p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      Kategori Layanan <span className="text-red-500">*</span>
-                    </label>
-                    {svcLoading ? (
-                      <div className="flex items-center gap-2 py-3 text-slate-400 text-sm">
-                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        Memuat layanan...
+                  {formStep === 1 && (
+                    <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+                      <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl mb-2">
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest mb-1">Langkah 1: Identitas</h4>
+                        <p className="text-[11px] text-slate-500">Masukkan nama dan kontak agar admin dapat mengonfirmasi laporan Anda.</p>
                       </div>
-                    ) : services.length === 0 ? (
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
-                        Belum ada layanan publik tersedia.
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Nama Lengkap Pelapor <span className="text-red-500">*</span></label>
+                        <input id="guestName" name="guestName" type="text" required placeholder="Masukkan nama lengkap" className="input-light" />
                       </div>
-                    ) : (
-                      <select
-                        id="select-public-service" required defaultValue=""
-                        onChange={(e) => { setSelectedSvc(services.find((s) => s._id === e.target.value) || null); setSubmitResult(null); }}
-                        className="input-light appearance-none cursor-pointer"
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">WhatsApp / Email Kontak <span className="text-red-500">*</span></label>
+                        <input id="guestContact" name="guestContact" type="text" required placeholder="Contoh: 081234567890" className="input-light" />
+                      </div>
+
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          const name = (document.getElementById('guestName') as HTMLInputElement)?.value;
+                          const contact = (document.getElementById('guestContact') as HTMLInputElement)?.value;
+                          if (name && contact) setFormStep(2);
+                          else alert("Harap isi Nama dan Kontak terlebih dahulu");
+                        }}
+                        className="w-full btn-primary bg-slate-900 border-b-4 border-slate-950 py-3 mt-4"
                       >
-                        <option value="" disabled>— Pilih kategori —</option>
-                        {services.map((svc) => (<option key={svc._id} value={svc._id}>{svc.namaLayanan}</option>))}
-                      </select>
-                    )}
-                  </div>
-
-                  {selectedSvc && (
-                    <div className="space-y-4 pt-3 border-t border-slate-100 animate-in fade-in duration-200">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <span className="w-2 h-2 bg-campus-primary rounded-full" />
-                        Formulir: {selectedSvc.namaLayanan}
-                      </p>
-                      {selectedSvc.formBuilder.map((field) => (
-                        <div key={field.id} className="space-y-1.5">
-                          <label htmlFor={`field-${field.id}`} className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
-                            {field.label}{field.isRequired && <span className="text-red-500 ml-1">*</span>}
-                          </label>
-                          {field.type === "text"     && <input id={`field-${field.id}`} name={field.id} type="text" required={field.isRequired} placeholder={`Masukkan ${field.label.toLowerCase()}`} className="input-light" />}
-                          {field.type === "textarea" && <textarea id={`field-${field.id}`} name={field.id} required={field.isRequired} rows={3} placeholder={`Jelaskan secara detail...`} className="input-light resize-none" />}
-                          {field.type === "select" && field.options && (
-                            <select id={`field-${field.id}`} name={field.id} required={field.isRequired} defaultValue="" className="input-light appearance-none cursor-pointer">
-                              <option value="" disabled>— Pilih opsi —</option>
-                              {field.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                            </select>
-                          )}
-                          {field.type === "file" && (
-                            <input id={`field-${field.id}`} name={field.id} type="file" required={field.isRequired} accept="image/*,.pdf,.doc,.docx"
-                              className="input-light file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-campus-primary/10 file:text-campus-primary hover:file:bg-campus-primary/20 cursor-pointer" />
-                          )}
-                        </div>
-                      ))}
+                        Lanjut ke Detail Laporan
+                      </button>
                     </div>
                   )}
 
-                  {selectedSvc && (
-                    <button id="btn-submit-public" type="submit" disabled={isSubmitting} className="w-full btn-primary disabled:opacity-50">
-                      {isSubmitting ? (
-                        <span className="inline-flex items-center gap-2">
-                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          Mengirim...
-                        </span>
-                      ) : (
-                        <><svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>Kirim Pengajuan</>
+                  {formStep === 2 && (
+                    <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Kategori Layanan <span className="text-red-500">*</span></label>
+                        {svcLoading ? (
+                          <div className="flex items-center gap-2 py-3 text-slate-400 text-sm">
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                            Memuat layanan...
+                          </div>
+                        ) : (
+                          <select
+                            id="select-public-service" required defaultValue=""
+                            onChange={(e) => { setSelectedSvc(services.find((s) => s._id === e.target.value) || null); setSubmitResult(null); }}
+                            className="input-light appearance-none cursor-pointer"
+                          >
+                            <option value="" disabled>— Pilih kategori —</option>
+                            {services.map((svc) => (<option key={svc._id} value={svc._id}>{svc.namaLayanan}</option>))}
+                          </select>
+                        )}
+                      </div>
+
+                      {selectedSvc && (
+                        <div className="space-y-4 pt-3 animate-in fade-in duration-300">
+                          {selectedSvc.formBuilder.map((field) => (
+                            <div key={field.id} className="space-y-1.5">
+                              <label htmlFor={`field-${field.id}`} className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+                                {field.label}{field.isRequired && <span className="text-red-500 ml-1">*</span>}
+                              </label>
+                              {field.type === "text"     && <input id={`field-${field.id}`} name={field.id} type="text" required={field.isRequired} placeholder={`Masukkan ${field.label.toLowerCase()}`} className="input-light" />}
+                              {field.type === "textarea" && <textarea id={`field-${field.id}`} name={field.id} required={field.isRequired} rows={3} placeholder={`Jelaskan secara detail...`} className="input-light resize-none" />}
+                              {field.type === "select" && field.options && (
+                                <select id={`field-${field.id}`} name={field.id} required={field.isRequired} defaultValue="" className="input-light appearance-none cursor-pointer">
+                                  <option value="" disabled>— Pilih opsi —</option>
+                                  {field.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                                </select>
+                              )}
+                              {field.type === "file" && (
+                                <input id={`field-${field.id}`} name={field.id} type="file" required={field.isRequired} accept="image/*,.pdf,.doc,.docx"
+                                  className="input-light file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-campus-primary/10 file:text-campus-primary hover:file:bg-campus-primary/20 cursor-pointer" />
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
-                    </button>
+
+                      <div className="flex gap-3 pt-4 border-t border-slate-100">
+                        <button type="button" onClick={() => setFormStep(1)} className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-200 transition-colors">
+                          Kembali
+                        </button>
+                        <button type="submit" disabled={isSubmitting || !selectedSvc} className="flex-[2] btn-primary disabled:opacity-50 border-b-4 border-blue-900">
+                          {isSubmitting ? "Mengirim..." : "Kirim Pengajuan"}
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </form>
               )}
@@ -638,7 +654,7 @@ export default function LandingClient({ feed }: { feed: PublicFeedItem[] }) {
                     <p className="font-medium text-slate-700">{trackResult.guestName}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-0.5">Prioritas URL</p>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-0.5">Prioritas</p>
                     <p className="font-medium text-slate-700">{trackResult.prioritas}</p>
                   </div>
                 </div>

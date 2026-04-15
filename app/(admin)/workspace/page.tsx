@@ -121,7 +121,7 @@ export default async function WorkspacePage() {
               {tickets.length} pengajuan
             </span>
           </div>
-          <WorkspaceTable tickets={tickets} adminNama={session.nama} />
+          <WorkspaceTable tickets={tickets} adminNama={session.nama} adminNimNip={session.nim_nip} />
         </div>
       </div>
     </div>

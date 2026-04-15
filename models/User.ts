@@ -6,6 +6,9 @@ export interface IUser extends Document {
   password: string;
   role: "mahasiswa" | "admin_departemen" | "superadmin";
   departmentId?: string;
+  isDeleted: boolean;
+  deletedAt?: Date;
+  deletedBy?: string;   // NIM/NIP Super Admin yang menghapus
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +42,18 @@ const UserSchema = new Schema<IUser>(
     departmentId: {
       type: String,
       required: false,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: String,
+      default: null,
     },
   },
   {

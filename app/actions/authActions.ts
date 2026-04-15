@@ -24,6 +24,11 @@ export async function loginUser(formData: FormData) {
       return { error: "NIM/NIP tidak ditemukan." };
     }
 
+    // Blokir login untuk user yang sudah dinonaktifkan (soft deleted)
+    if (user.isDeleted) {
+      return { error: "Akun Anda telah dinonaktifkan. Hubungi administrator." };
+    }
+
     // Cek password (plain text untuk demo MVP)
     if (user.password !== password) {
       return { error: "Password salah." };

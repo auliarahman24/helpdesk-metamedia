@@ -147,8 +147,8 @@ export default function TrackingClient({ ticket }: { ticket: TicketDetail }) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Layanan</p>
-                <p className="text-sm text-slate-800 font-bold">{ticket.namaLayanan}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Prioritas</p>
+                <p className="text-sm text-slate-800 font-bold">{ticket.prioritas || "Sedang"}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tanggal Dibuat</p>

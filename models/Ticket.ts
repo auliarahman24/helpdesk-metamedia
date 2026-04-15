@@ -18,6 +18,8 @@ export interface ITicket extends Document {
   serviceId: mongoose.Types.ObjectId; // Relasi ke Service
   status: string;               // Status saat ini (single field untuk efisiensi query)
   prioritas: string;            // Tingkat urgensi tiket (Rendah, Sedang, Tinggi, Kritis)
+  assigneeId?: string;          // NIM/NIP Admin yang mengambil alih tiket
+  mahasiswaNama?: string;       // Nama pelapor (denormalized dari User/session)
   
   // Public/Guest System Fields
   isGuest: boolean;
@@ -82,6 +84,13 @@ const TicketSchema = new Schema<ITicket>(
       enum: ["Rendah", "Sedang", "Tinggi", "Kritis"],
       default: "Sedang",
       required: [true, "Prioritas wajib diisi"],
+    },
+    assigneeId: {
+      type: String,
+      default: null,
+    },
+    mahasiswaNama: {
+      type: String,
     },
     isGuest: { type: Boolean, default: false },
     guestName: { type: String },

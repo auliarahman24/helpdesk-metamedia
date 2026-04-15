@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import fs from "fs/promises";
 import path from "path";
 import mongoose from "mongoose";
@@ -49,6 +51,7 @@ export async function getPublicFeed(): Promise<PublicFeedItem[]> {
     const tickets = await Ticket.find({
       // Sembunyikan tiket karantina & tiket yang dibatalkan dari feed publik
       status: { $nin: ["Pending Verifikasi", "Dibatalkan"] },
+      isDeleted: { $ne: true }
     })
       // Hanya ambil field yang aman untuk publik — TANPA dynamicData!
       .select("ticketId serviceId status createdAt")
@@ -70,6 +73,36 @@ export async function getPublicFeed(): Promise<PublicFeedItem[]> {
     return [];
   }
 }
+
+// ============================================================
+// 2. getPublicServices()
+//
+//    Mengambil daftar layanan yang boleh diakses publik (isPublic: true)
+//    dan berstatus Aktif untuk digunakan di form tamu.
+// ============================================================
+export async function getPublicServices(): Promise<any[]> {
+  try {
+    await dbConnect();
+    const services = await Service.find({ 
+      isPublic: true, 
+      isActive: true,
+      isDeleted: { $ne: true } 
+    })
+      .select("namaLayanan departmentId formBuilder")
+      .lean();
+
+    return services.map((s) => ({
+      _id: String(s._id),
+      namaLayanan: s.namaLayanan,
+      departmentId: s.departmentId,
+      formBuilder: s.formBuilder || [],
+    }));
+  } catch (error) {
+    console.error("[publicActions] getPublicServices error:", error);
+    return [];
+  }
+}
+
 
 // ============================================================
 // 2. submitPublicTicket()
@@ -158,11 +191,8 @@ export async function submitPublicTicket(formData: FormData): Promise<{
     // 5. Generate Ticket ID & PIN
     const ticketId = generateTicketId();
     
-    const pinChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    const randPin = Array.from({ length: 4 }, () =>
-      pinChars[Math.floor(Math.random() * pinChars.length)]
-    ).join("");
-    const guestPin = `MET-${randPin}`;
+    // Generate 6 digit angka acak (misal: 102938)
+    const guestPin = Math.floor(100000 + Math.random() * 900000).toString();
 
     const prioritas = service.defaultPrioritas || "Sedang";
 
@@ -223,11 +253,14 @@ export async function trackPublicTicket(ticketId: string, guestPin: string) {
     const ticket = await Ticket.findOne({
       ticketId: ticketId.trim(),
       guestPin: guestPin.trim(),
-      isGuest: true
+      isGuest: true,
+      isDeleted: { $ne: true }
     }).populate("serviceId", "namaLayanan").lean();
 
     if (!ticket) {
-      return { error: "Tiket tidak ditemukan atau PIN salah." };
+      // ── Anti Brute-Force: delay artifisial saat gagal ──
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return { error: "ID Tiket atau PIN tidak valid." };
     }
 
     const t = ticket as any;
@@ -240,16 +273,21 @@ export async function trackPublicTicket(ticketId: string, guestPin: string) {
         status: t.status,
         prioritas: t.prioritas,
         waktuMasuk: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
-        statusHistory: (t.statusHistory || []).map((h: any) => ({
-          status: h.status,
-          timestamp: h.timestamp ? new Date(h.timestamp).toISOString() : new Date().toISOString(),
-          note: h.note || ""
-        }))
+        // Sanitasi: Sembunyikan catatan yang ditandai sebagai internal
+        statusHistory: (t.statusHistory || [])
+          .filter((h: any) => !h.note?.startsWith("[Internal]"))
+          .map((h: any) => ({
+            status: h.status,
+            timestamp: h.timestamp ? new Date(h.timestamp).toISOString() : new Date().toISOString(),
+            note: h.note || ""
+          }))
       }
     };
   } catch (error) {
     console.error("[publicActions] trackPublicTicket error:", error);
-    return { error: "Terjadi kesalahan server saat melacak tiket." };
+    // Anti Brute-Force juga saat error server
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    return { error: "ID Tiket atau PIN tidak valid." };
   }
 }
 
@@ -276,8 +314,11 @@ export async function guestConfirmTicketClosed(ticketId: string, guestPin: strin
       { returnDocument: "after" }
     );
 
-    if (!result) return { error: "Tiket tidak ditemukan, PIN salah, atau status tidak valid." };
-    return { success: true, message: "Resolusi diterima. Tiket berhasil ditutup." };
+    if (!result) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return { error: "ID Tiket atau PIN tidak valid." };
+    }
+    return { success: true, message: "Resolusi diterima. Laporan berhasil ditutup." };
   } catch (error) {
     console.error("Guest confirm ticket closed error:", error);
     return { error: "Terjadi kesalahan server." };
@@ -309,7 +350,10 @@ export async function guestReopenTicket(ticketId: string, guestPin: string, comp
       { returnDocument: "after" }
     );
 
-    if (!result) return { error: "Tiket tidak ditemukan, PIN salah, atau tiket tidak sedang berstatus Selesai." };
+    if (!result) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return { error: "ID Tiket atau PIN tidak valid." };
+    }
     return { success: true, message: "Komplain dikirim. Laporan akan diproses kembali." };
   } catch (error) {
     console.error("Guest reopen ticket error:", error);

@@ -37,6 +37,7 @@ interface FormFieldInput {
 interface FormValues {
   namaLayanan: string;
   departmentId: string;
+  isPublic: boolean;
   defaultPrioritas: "Rendah" | "Sedang" | "Tinggi" | "Kritis";
   formBuilder: FormFieldInput[];
 }
@@ -106,6 +107,7 @@ export default function ServiceManager({
     reset({
       namaLayanan: "",
       departmentId: "",
+      isPublic: false,
       defaultPrioritas: "Sedang",
       formBuilder: [],
     });
@@ -118,6 +120,7 @@ export default function ServiceManager({
     reset({
       namaLayanan: service.namaLayanan,
       departmentId: service.departmentId,
+      isPublic: service.isPublic || false,
       defaultPrioritas: service.defaultPrioritas || "Sedang",
       formBuilder: (service.formBuilder || []).map((f) => ({
         id: f.id,
@@ -159,6 +162,7 @@ export default function ServiceManager({
     const payload: CreateServiceInput = {
       namaLayanan: data.namaLayanan,
       departmentId: data.departmentId,
+      isPublic: data.isPublic,
       defaultPrioritas: data.defaultPrioritas,
       formBuilder: enriched.map((f) => ({
         id: f.id,
@@ -186,7 +190,7 @@ export default function ServiceManager({
           setServices((prev) =>
             prev.map((s) =>
               s._id === editModeId
-                ? { ...s, namaLayanan: data.namaLayanan, departmentId: data.departmentId, defaultPrioritas: data.defaultPrioritas, formBuilderCount: data.formBuilder.length, formBuilder: payload.formBuilder }
+                ? { ...s, namaLayanan: data.namaLayanan, departmentId: data.departmentId, isPublic: data.isPublic, defaultPrioritas: data.defaultPrioritas, formBuilderCount: data.formBuilder.length, formBuilder: payload.formBuilder }
                 : s
             )
           );
@@ -203,6 +207,7 @@ export default function ServiceManager({
               _id: res.serviceId || Date.now().toString(),
               namaLayanan: data.namaLayanan,
               departmentId: data.departmentId,
+              isPublic: data.isPublic,
               defaultPrioritas: data.defaultPrioritas,
               isActive: true,
               formBuilderCount: data.formBuilder.length,
@@ -282,7 +287,8 @@ export default function ServiceManager({
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nama Layanan</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Departemen</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Form Input</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Status Visibility</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Sifat Layanan</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Status Aktif</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
               </tr>
             </thead>
@@ -317,6 +323,17 @@ export default function ServiceManager({
                       <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-200 text-xs font-bold shadow-sm">
                         {service.formBuilderCount} field
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {service.isPublic ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-200">
+                          🔓 Publik / Tamu
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-50 text-slate-400 border border-slate-200">
+                          🔒 Internal Saja
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <button
@@ -361,7 +378,7 @@ export default function ServiceManager({
 
           {/* Dialog */}
           <div
-            className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-3xl shadow-2xl"
+            className="relative w-full max-w-3xl bg-white border border-slate-200 rounded-3xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -456,7 +473,7 @@ export default function ServiceManager({
                             </select>
                           )}
                         />
-                        <div className="absolute top-[10px] right-3 flex items-center pointer-events-none text-slate-400">
+                        <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
                         </div>
                       </div>
@@ -490,13 +507,36 @@ export default function ServiceManager({
                             </select>
                           )}
                         />
-                        <div className="absolute top-[10px] right-3 flex items-center pointer-events-none text-slate-400">
+                        <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
                         </div>
                       </div>
                       {errors.defaultPrioritas && (
                         <p className="text-xs text-rose-500 font-medium">{errors.defaultPrioritas.message}</p>
                       )}
+                    </div>
+
+                    {/* Sifat Layanan (Public Toggle) */}
+                    <div className="space-y-1.5 flex flex-col justify-start">
+                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                         Sifat Akses <span className="text-rose-500">*</span>
+                       </label>
+                       <div className="flex items-center h-[42px] px-2 bg-slate-50 border border-slate-200 rounded-xl">
+                         <label className="flex items-center gap-3 cursor-pointer group w-full">
+                           <div className="relative">
+                             <input
+                               type="checkbox"
+                               {...register("isPublic")}
+                               className="sr-only peer"
+                             />
+                             <div className="w-10 h-6 bg-slate-200 rounded-full peer-checked:bg-amber-400 transition-colors border border-slate-300 peer-checked:border-amber-600 shadow-inner"></div>
+                             <div className="absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full peer-checked:translate-x-4 transition-all shadow-sm"></div>
+                           </div>
+                           <span className={`text-[11px] font-bold transition-colors ${watch("isPublic") ? "text-amber-700" : "text-slate-500"}`}>
+                             {watch("isPublic") ? "🔓 Terbuka untuk Tamu / Publik" : "🔒 Khusus Internal (Wajib Login)"}
+                           </span>
+                         </label>
+                       </div>
                     </div>
                   </div>
                 </div>
@@ -637,7 +677,7 @@ export default function ServiceManager({
                                    </select>
                                 )}
                               />
-                              <div className="absolute top-[10px] right-3 flex items-center pointer-events-none text-slate-400">
+                              <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
                               </div>
                             </div>
