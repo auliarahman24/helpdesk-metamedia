@@ -253,7 +253,7 @@ export async function softDeleteService(serviceId: string) {
 
     return {
       success: true,
-      message: `Layanan "${service.namaLayanan}" berhasil dihapus. Tiket lama tidak terpengaruh.`,
+      message: `Layanann "${service.namaLayanan}" berhasil dihapus. Tiket lama tidak terpengaruh.`,
     };
   } catch (error) {
     console.error("Soft delete service error:", error);
