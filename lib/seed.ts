@@ -209,6 +209,14 @@ export async function seedDatabase() {
       "DEPT-KEAMANAN":   "100004",
     };
 
+    // Peta departemen → nama (untuk snapshot Self-Contained)
+    const departmentNameMap: Record<string, string> = {
+      "DEPT-BAAK":       "Biro Administrasi Akademik",
+      "DEPT-TEKNISI":    "Teknisi Sarana Prasarana",
+      "DEPT-KEBERSIHAN": "Tim Kebersihan Kampus",
+      "DEPT-KEAMANAN":   "Keamanan (Satpam)",
+    };
+
     // ── Nama tamu bervariasi ──
     const guestNames = [
       "Ahmad Zulkarnain", "Maria Ulfa", "Joko Susilo", "Rina Wati",
@@ -283,6 +291,9 @@ export async function seedDatabase() {
         mahasiswaNama: config.mahasiswaNama,
         serviceId: new mongoose.Types.ObjectId(String(config.svc._id)),
         departmentId: config.svc.departmentId,
+        // ── Snapshot Fields (Self-Contained Document) ──
+        namaLayanan: config.svc.namaLayanan,
+        departmentName: departmentNameMap[config.svc.departmentId] || config.svc.departmentId,
         status: config.status,
         prioritas: config.svc.defaultPrioritas || "Sedang",
         assigneeId: config.assigneeId,

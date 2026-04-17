@@ -135,7 +135,7 @@ export default function TrackingClient({ ticket }: { ticket: TicketDetail }) {
                 </h1>
                 <p className="text-sm font-medium text-slate-500">
                   <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Departemen:</span>{" "}
-                  <span className="text-slate-700 font-bold">{ticket.departmentId}</span>
+                  <span className="text-slate-700 font-bold">{(ticket as any).departmentName || ticket.departmentId}</span>
                 </p>
               </div>
 

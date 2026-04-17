@@ -18,6 +18,7 @@ export interface IService extends Document {
   departmentId: string;
   isActive: boolean;        // dipertahankan — Super Admin bisa enable/disable layanan
   isPublic: boolean;        // true = bisa diakses tamu/publik tanpa login
+  publishToTransparencyBoard: boolean; // true = antrian tampil di papan transparansi publik (anonymized)
   defaultPrioritas: string; // prioritas SLA berdasarkan layanan
   formBuilder: IFormField[];
   isDeleted: boolean;
@@ -85,6 +86,10 @@ const ServiceSchema = new Schema<IService>(
     isPublic: {
       type: Boolean,
       default: false, // by default tidak publik — harus di-enable manual oleh Super Admin
+    },
+    publishToTransparencyBoard: {
+      type: Boolean,
+      default: true, // secara default aktif untuk transparansi publik
     },
     defaultPrioritas: {
       type: String,

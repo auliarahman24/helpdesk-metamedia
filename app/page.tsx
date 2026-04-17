@@ -1,10 +1,13 @@
-import { getPublicFeed } from "@/app/actions/publicActions";
+import { getTransparencyTickets, getPublicServices } from "@/app/actions/publicActions";
 import LandingClient from "./LandingClient";
 
-export const dynamic = "force-dynamic"; // selalu fresh feed
+export const revalidate = 60; // SSR with auto-refresh every 60s
 
 export default async function HomePage() {
-  const feed = await getPublicFeed();
+  const [tickets, services] = await Promise.all([
+    getTransparencyTickets(),
+    getPublicServices()
+  ]);
 
-  return <LandingClient feed={feed} />;
+  return <LandingClient initialTickets={tickets} services={services} />;
 }

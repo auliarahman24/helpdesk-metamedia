@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import Service from "@/models/Service";
 import Ticket from "@/models/Ticket";
+import Department from "@/models/Department";
 
 // ============================================================
 // Generator: Custom Ticket ID (sama dengan ticketActions.ts)
@@ -29,10 +30,14 @@ function generateTicketId(): string {
 // dynamicData TIDAK pernah diekspos ke client (privasi pelapor)
 // ============================================================
 export interface PublicFeedItem {
+  _id: string;
   ticketId: string;
-  namaLayanan: string;    // dari populate serviceId
+  namaLayanan: string;
+  departmentName: string;
   status: string;
-  createdAt: string;      // ISO string (serializable)
+  createdAt: string;
+  dynamicData?: Record<string, unknown>;
+  formSnapshot?: any[];
 }
 
 // ============================================================
@@ -54,15 +59,17 @@ export async function getPublicFeed(): Promise<PublicFeedItem[]> {
       isDeleted: { $ne: true }
     })
       // Hanya ambil field yang aman untuk publik — TANPA dynamicData!
-      .select("ticketId serviceId status createdAt")
+      .select("ticketId serviceId namaLayanan status createdAt")
       .populate("serviceId", "namaLayanan") // join nama layanan saja
       .sort({ createdAt: -1 })              // indeks createdAt-1 aktif di sini
       .limit(10)
       .lean();
 
     return tickets.map((t) => ({
+      _id: String(t._id),
       ticketId: (t as any).ticketId || "",
-      namaLayanan: (t.serviceId as any)?.namaLayanan || "Layanan Umum",
+      namaLayanan: (t as any).namaLayanan || (t.serviceId as any)?.namaLayanan || "Layanan Umum",
+      departmentName: (t as any).departmentName || "General",
       status: (t as any).status || "Masuk",
       createdAt: t.createdAt
         ? new Date(t.createdAt as any).toISOString()
@@ -196,6 +203,9 @@ export async function submitPublicTicket(formData: FormData): Promise<{
 
     const prioritas = service.defaultPrioritas || "Sedang";
 
+    // 5b. Fetch nama departemen untuk snapshot Self-Contained
+    const dept = await Department.findOne({ departmentId: service.departmentId }).lean();
+
     // 6. Simpan tiket dengan modifikasi keamanan:
     //    - mahasiswaId  = "PUBLIC_GUEST"
     //    - status       = "Pending Verifikasi" (karantina admin)
@@ -203,7 +213,9 @@ export async function submitPublicTicket(formData: FormData): Promise<{
       ticketId,
       mahasiswaId: "PUBLIC_GUEST",             // ← injeksi paksa
       departmentId: service.departmentId,
+      departmentName: dept?.namaDepartemen || service.departmentId, // ← Snapshot
       serviceId: new mongoose.Types.ObjectId(serviceId),
+      namaLayanan: service.namaLayanan,         // ← Snapshot
       status: "Pending Verifikasi",             // ← karantina
       prioritas,
       isGuest: true,
@@ -269,7 +281,7 @@ export async function trackPublicTicket(ticketId: string, guestPin: string) {
       ticket: {
         ticketId: t.ticketId,
         guestName: t.guestName,
-        namaLayanan: t.serviceId?.namaLayanan || "Layanan Umum",
+        namaLayanan: t.namaLayanan || t.serviceId?.namaLayanan || "Layanan Umum",
         status: t.status,
         prioritas: t.prioritas,
         waktuMasuk: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
@@ -358,5 +370,74 @@ export async function guestReopenTicket(ticketId: string, guestPin: string, comp
   } catch (error) {
     console.error("Guest reopen ticket error:", error);
     return { error: "Terjadi kesalahan server." };
+  }
+}
+
+// ============================================================
+// 6. getTransparencyTickets()
+//
+//    Fitur Inti: Papan Transparansi Publik 
+    //    - Menampilkan 50 tiket terbaru
+    //    - Filter by Service.publishToTransparencyBoard: true
+    //    - Filter by Ticket.isForcePrivate: false
+// ============================================================
+export async function getTransparencyTickets(): Promise<PublicFeedItem[]> {
+  try {
+    await dbConnect();
+
+    // 1. Ambil Layanan yang membolehkan transparansi
+    const publicServices = await Service.find({ 
+      publishToTransparencyBoard: true,
+      isDeleted: { $ne: true }
+    }).select("_id").lean();
+    
+    const publicServiceIds = publicServices.map(s => s._id);
+
+    // 2. Fetch Tiket
+    const tickets = await Ticket.find({
+      serviceId: { $in: publicServiceIds },
+      isForcePrivate: { $ne: true },
+      status: { $nin: ["Pending Verifikasi", "Dibatalkan"] },
+      isDeleted: { $ne: true }
+    })
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .lean();
+
+    // 3. Sanitasi Ketat (PII Masking)
+    return tickets.map((t: any) => {
+      const sanitizedData: Record<string, unknown> = {};
+      const formSnapshot = t.formSnapshot || [];
+      const rawData = t.dynamicData instanceof Map 
+        ? Object.fromEntries(t.dynamicData) 
+        : (t.dynamicData || {});
+
+      // Hanya masukkan field yang BUKAN file dan bukan PII
+      formSnapshot.forEach((field: any) => {
+        if (field.type !== "file") {
+          sanitizedData[field.id] = rawData[field.id] || "-";
+        } else {
+          sanitizedData[field.id] = "[Lampiran Disembunyikan]";
+        }
+      });
+
+      return {
+        _id: String(t._id),
+        ticketId: t.ticketId,
+        namaLayanan: t.namaLayanan,
+        departmentName: t.departmentName,
+        status: t.status,
+        createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
+        dynamicData: sanitizedData,
+        formSnapshot: formSnapshot.map((f: any) => ({
+          id: f.id,
+          label: f.label,
+          type: f.type
+        }))
+      };
+    });
+  } catch (error) {
+    console.error("[publicActions] getTransparencyTickets error:", error);
+    return [];
   }
 }

@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import dbConnect from "@/lib/mongodb";
 import Service from "@/models/Service";
 import Ticket from "@/models/Ticket";
+import Department from "@/models/Department";
 import mongoose from "mongoose";
 import { getSession } from "@/app/actions/authActions";
 
@@ -176,13 +177,18 @@ export async function submitTicketFormData(formData: FormData) {
     // Ambil prioritas auto-inherit dari Master Layanan
     const prioritas = service.defaultPrioritas || "Sedang";
 
+    // 6b. Fetch nama departemen untuk snapshot Self-Contained
+    const dept = await Department.findOne({ departmentId: service.departmentId }).lean();
+
     // 7. Simpan tiket ke database
     const ticket = await Ticket.create({
       ticketId,
       mahasiswaId: session.nim_nip,   // ← injeksi dari session, bukan form input
-      mahasiswaNama: session.nama,    // ← denormalized: nama pelapor disimpan langsung
+      mahasiswaNama: session.nama,    // ← Snapshot: nama pelapor
       departmentId: service.departmentId,
+      departmentName: dept?.namaDepartemen || service.departmentId, // ← Snapshot
       serviceId: new mongoose.Types.ObjectId(serviceId),
+      namaLayanan: service.namaLayanan, // ← Snapshot: nama layanan
       status: "Masuk",
       prioritas,
       dynamicData,
@@ -224,14 +230,16 @@ export interface TicketRow {
   mahasiswaId: string;
   mahasiswaNama: string;
   departmentId: string;
+  departmentName: string;        // Snapshot atau fallback
   serviceId: string;
-  namaLayanan: string;           // dari populate Service
+  namaLayanan: string;           // Snapshot atau fallback dari populate
   status: string;
   prioritas: string;
   assigneeId: string | null;
   isGuest?: boolean;
   guestName?: string;
   guestContact?: string;
+  isForcePrivate: boolean;
   statusTerkini: string;         // alias status (backward compat UI)
   dynamicData: Record<string, unknown>;
   formSnapshot: FormFieldData[];
@@ -259,16 +267,20 @@ function mapToTicketRow(t: any): TicketRow {
     mahasiswaId: t.mahasiswaId || "",
     mahasiswaNama: t.mahasiswaNama || "",
     departmentId: t.departmentId || "",
+    // Graceful Fallback: snapshot → populate → placeholder
+    departmentName: t.departmentName || t.departmentId || "",
     serviceId: t.serviceId?._id
       ? String(t.serviceId._id)
       : String(t.serviceId),
-    namaLayanan: t.serviceId?.namaLayanan || "",  // hasil populate
+    // Graceful Fallback: snapshot → populate → placeholder
+    namaLayanan: t.namaLayanan || t.serviceId?.namaLayanan || "Layanan Tidak Dikenal",
     status: t.status || "Masuk",
     prioritas: t.prioritas || "Sedang",
     assigneeId: t.assigneeId || null,
     isGuest: t.isGuest || false,
     guestName: t.guestName || "",
     guestContact: t.guestContact || "",
+    isForcePrivate: t.isForcePrivate || false,
     statusTerkini: t.status || "Masuk",
     dynamicData: dynData,
     formSnapshot: (t.formSnapshot || []) as FormFieldData[],
@@ -348,10 +360,12 @@ export interface TicketDetail {
   ticketId: string;
   mahasiswaId: string;
   departmentId: string;
+  departmentName: string;         // Snapshot
   serviceId: string;
-  namaLayanan: string;           // dari populate
+  namaLayanan: string;           // Snapshot atau fallback dari populate
   status: string;
   prioritas: string;
+  isForcePrivate: boolean;
   dynamicData: Record<string, unknown>;
   formSnapshot: FormFieldData[];
   statusHistory: {
@@ -396,12 +410,14 @@ export async function getTicketById(id: string): Promise<TicketDetail | null> {
       ticketId: ticket.ticketId || "",
       mahasiswaId: ticket.mahasiswaId || "",
       departmentId: ticket.departmentId || "",
+      departmentName: (ticket as any).departmentName || ticket.departmentId || "",
       serviceId: (ticket.serviceId as any)?._id
         ? String((ticket.serviceId as any)._id)
         : String(ticket.serviceId),
-      namaLayanan: (ticket.serviceId as any)?.namaLayanan || "",
+      namaLayanan: (ticket as any).namaLayanan || (ticket.serviceId as any)?.namaLayanan || "Layanan Tidak Dikenal",
       status: ticket.status || "Masuk",
       prioritas: ticket.prioritas || "Sedang",
+      isForcePrivate: ticket.isForcePrivate || false,
       dynamicData: dynData,
       formSnapshot: (ticket.formSnapshot || []) as FormFieldData[],
       statusHistory: (ticket.statusHistory || []).map((h: any) => ({
@@ -650,6 +666,37 @@ export async function reopenTicket(ticketId: string, complaintNote: string) {
     return { success: true, message: "Laporan berhasil dibuka kembali." };
   } catch (error) {
     console.error("Reopen ticket error:", error);
+    return { error: "Terjadi kesalahan server." };
+  }
+}
+
+// ============================================================
+// Toggle Force Private (Oleh Super Admin)
+// Veto manual untuk menyembunyikan tiket dari Papan Transparansi
+// ============================================================
+export async function toggleForcePrivate(ticketId: string) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "superadmin") {
+      return { error: "Hanya Super Admin yang dapat menggunakan fitur Veto Privasi." };
+    }
+
+    await dbConnect();
+    const ticket = await Ticket.findById(ticketId);
+    if (!ticket) return { error: "Tiket tidak ditemukan." };
+
+    const newValue = !ticket.isForcePrivate;
+    await Ticket.findByIdAndUpdate(ticketId, { $set: { isForcePrivate: newValue } });
+
+    return {
+      success: true,
+      isForcePrivate: newValue,
+      message: newValue
+        ? "Tiket berhasil DISEMBUNYIKAN dari Papan Transparansi Publik."
+        : "Tiket kini TERSEDIA kembali di Papan Transparansi Publik (jika Layanan bersifat Publik).",
+    };
+  } catch (error) {
+    console.error("Toggle force private error:", error);
     return { error: "Terjadi kesalahan server." };
   }
 }

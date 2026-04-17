@@ -15,17 +15,20 @@ export interface ITicket extends Document {
   ticketId: string;             // Custom Enterprise ID: TKT-YYMMDD-XXXX
   mahasiswaId: string;          // Diambil otomatis dari session, BUKAN dari form input
   departmentId: string;
-  serviceId: mongoose.Types.ObjectId; // Relasi ke Service
+  serviceId: mongoose.Types.ObjectId; // Relasi ke Service (tetap ada untuk query)
   status: string;               // Status saat ini (single field untuk efisiensi query)
   prioritas: string;            // Tingkat urgensi tiket (Rendah, Sedang, Tinggi, Kritis)
   assigneeId?: string;          // NIM/NIP Admin yang mengambil alih tiket
-  mahasiswaNama?: string;       // Nama pelapor (denormalized dari User/session)
+  mahasiswaNama?: string;       // Snapshot: Nama pelapor (denormalized dari User/session)
+  namaLayanan?: string;         // Snapshot: Nama layanan saat tiket dibuat
+  departmentName?: string;      // Snapshot: Nama departemen saat tiket dibuat
   
   // Public/Guest System Fields
   isGuest: boolean;
   guestName?: string;
   guestContact?: string;
   guestPin?: string;
+  isForcePrivate: boolean;      // Override manual Super Admin untuk menyembunyikan tiket dari publik
 
   dynamicData: Map<string, unknown>; // Semua jawaban form (termasuk URL file)
   formSnapshot: unknown[];      // Snapshot layout form saat tiket dibuat (Point-in-Time)
@@ -92,10 +95,20 @@ const TicketSchema = new Schema<ITicket>(
     mahasiswaNama: {
       type: String,
     },
+    // ── Snapshot Fields (Self-Contained Document) ──
+    // Data ini dibekukan saat tiket dibuat, sehingga tiket
+    // tidak bergantung pada keberadaan entitas induk.
+    namaLayanan: {
+      type: String,
+    },
+    departmentName: {
+      type: String,
+    },
     isGuest: { type: Boolean, default: false },
     guestName: { type: String },
     guestContact: { type: String },
     guestPin: { type: String },
+    isForcePrivate: { type: Boolean, default: false },
     // Map untuk menyimpan semua jawaban form secara dinamis
     // Key = field.id dari formBuilder, Value = string/number/URL file
     dynamicData: {

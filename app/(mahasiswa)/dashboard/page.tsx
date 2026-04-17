@@ -170,7 +170,7 @@ export default async function DashboardPage() {
 
                     {/* Meta */}
                     <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span>{ticket.departmentId}</span>
+                      <span>{(ticket as any).departmentName || ticket.departmentId}</span>
                       <span>{formatTanggal(new Date(ticket.waktuMasuk))}</span>
                     </div>
                   </Link>

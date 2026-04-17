@@ -6,6 +6,7 @@ import {
   createService,
   updateService,
   toggleServiceActive,
+  softDeleteService,
   type ServiceRow,
   type CreateServiceInput,
 } from "@/app/actions/serviceActions";
@@ -38,6 +39,7 @@ interface FormValues {
   namaLayanan: string;
   departmentId: string;
   isPublic: boolean;
+  publishToTransparencyBoard: boolean;
   defaultPrioritas: "Rendah" | "Sedang" | "Tinggi" | "Kritis";
   formBuilder: FormFieldInput[];
 }
@@ -108,6 +110,7 @@ export default function ServiceManager({
       namaLayanan: "",
       departmentId: "",
       isPublic: false,
+      publishToTransparencyBoard: true,
       defaultPrioritas: "Sedang",
       formBuilder: [],
     });
@@ -121,6 +124,7 @@ export default function ServiceManager({
       namaLayanan: service.namaLayanan,
       departmentId: service.departmentId,
       isPublic: service.isPublic || false,
+      publishToTransparencyBoard: service.publishToTransparencyBoard !== false,
       defaultPrioritas: service.defaultPrioritas || "Sedang",
       formBuilder: (service.formBuilder || []).map((f) => ({
         id: f.id,
@@ -163,6 +167,7 @@ export default function ServiceManager({
       namaLayanan: data.namaLayanan,
       departmentId: data.departmentId,
       isPublic: data.isPublic,
+      publishToTransparencyBoard: data.publishToTransparencyBoard,
       defaultPrioritas: data.defaultPrioritas,
       formBuilder: enriched.map((f) => ({
         id: f.id,
@@ -190,7 +195,7 @@ export default function ServiceManager({
           setServices((prev) =>
             prev.map((s) =>
               s._id === editModeId
-                ? { ...s, namaLayanan: data.namaLayanan, departmentId: data.departmentId, isPublic: data.isPublic, defaultPrioritas: data.defaultPrioritas, formBuilderCount: data.formBuilder.length, formBuilder: payload.formBuilder }
+                ? { ...s, namaLayanan: data.namaLayanan, departmentId: data.departmentId, isPublic: data.isPublic, publishToTransparencyBoard: data.publishToTransparencyBoard, defaultPrioritas: data.defaultPrioritas, formBuilderCount: data.formBuilder.length, formBuilder: payload.formBuilder }
                 : s
             )
           );
@@ -208,6 +213,7 @@ export default function ServiceManager({
               namaLayanan: data.namaLayanan,
               departmentId: data.departmentId,
               isPublic: data.isPublic,
+              publishToTransparencyBoard: data.publishToTransparencyBoard,
               defaultPrioritas: data.defaultPrioritas,
               isActive: true,
               formBuilderCount: data.formBuilder.length,
@@ -235,7 +241,22 @@ export default function ServiceManager({
     });
   }
 
-  // Delete functionality removed entirely for Advanced MVP constraint
+  function handleDelete(service: ServiceRow) {
+    const confirmMsg = `Apakah Anda yakin ingin menghapus layanan "${service.namaLayanan}"? \n\nLayanan akan disembunyikan dari pelapor, namun data historis tiket lama akan tetap aman karena sistem menggunakan mekanisme Point-in-Time Snapshot.`;
+    
+    if (window.confirm(confirmMsg)) {
+      startTransition(async () => {
+        const res = await softDeleteService(service._id);
+        if (res.success) {
+          setServices((prev) => prev.filter((s) => s._id !== service._id));
+        } else {
+          alert(res.error || "Gagal menghapus layanan.");
+        }
+      });
+    }
+  }
+
+  // Delete functionality logic restored with softDeleteService integration
 
   // ============================================================
   // Shared input classes
@@ -287,6 +308,7 @@ export default function ServiceManager({
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nama Layanan</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Departemen</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Form Input</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Papan Publik</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Sifat Layanan</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Status Aktif</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
@@ -325,6 +347,17 @@ export default function ServiceManager({
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
+                      {service.publishToTransparencyBoard ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm">
+                          👁️ Tayang
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-50 text-slate-400 border border-slate-200">
+                          🙈 Sembunyi
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
                       {service.isPublic ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-200">
                           🔓 Publik / Tamu
@@ -349,15 +382,26 @@ export default function ServiceManager({
                       </button>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => openEditModal(service)}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 shadow-sm transition-all duration-200 cursor-pointer"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                        </svg>
-                        Edit Form
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openEditModal(service)}
+                          className="inline-flex items-center gap-2 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 shadow-sm transition-all duration-200 cursor-pointer"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                          </svg>
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(service)}
+                          className="inline-flex items-center gap-2 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold rounded-xl border border-rose-200 shadow-sm transition-all duration-200 cursor-pointer"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-rose-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                          </svg>
+                          Hapus
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -517,27 +561,50 @@ export default function ServiceManager({
                     </div>
 
                     {/* Sifat Layanan (Public Toggle) */}
-                    <div className="space-y-1.5 flex flex-col justify-start">
-                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
-                         Sifat Akses <span className="text-rose-500">*</span>
-                       </label>
-                       <div className="flex items-center h-[42px] px-2 bg-slate-50 border border-slate-200 rounded-xl">
-                         <label className="flex items-center gap-3 cursor-pointer group w-full">
-                           <div className="relative">
-                             <input
-                               type="checkbox"
-                               {...register("isPublic")}
-                               className="sr-only peer"
-                             />
-                             <div className="w-10 h-6 bg-slate-200 rounded-full peer-checked:bg-amber-400 transition-colors border border-slate-300 peer-checked:border-amber-600 shadow-inner"></div>
-                             <div className="absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full peer-checked:translate-x-4 transition-all shadow-sm"></div>
-                           </div>
-                           <span className={`text-[11px] font-bold transition-colors ${watch("isPublic") ? "text-amber-700" : "text-slate-500"}`}>
-                             {watch("isPublic") ? "🔓 Terbuka untuk Tamu / Publik" : "🔒 Khusus Internal (Wajib Login)"}
-                           </span>
-                         </label>
-                       </div>
-                    </div>
+                     {/* Transparency Board Toggle */}
+                     <div className="space-y-1.5 flex flex-col justify-start">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          Papan Transparansi <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="flex items-center h-[42px] px-2 bg-slate-50 border border-slate-200 rounded-xl">
+                          <label className="flex items-center gap-3 cursor-pointer group w-full">
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                {...register("publishToTransparencyBoard")}
+                                className="sr-only peer"
+                              />
+                              <div className="w-10 h-6 bg-slate-200 rounded-full peer-checked:bg-emerald-400 transition-colors border border-slate-300 peer-checked:border-emerald-600 shadow-inner"></div>
+                              <div className="absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full peer-checked:translate-x-4 transition-all shadow-sm"></div>
+                            </div>
+                            <span className={`text-[11px] font-bold transition-colors ${watch("publishToTransparencyBoard") ? "text-emerald-700" : "text-slate-500"}`}>
+                              {watch("publishToTransparencyBoard") ? "👁️ Publikasikan ke Papan Transparansi" : "🙈 Sembunyikan dari Publik"}
+                            </span>
+                          </label>
+                        </div>
+                     </div>
+
+                     <div className="space-y-1.5 flex flex-col justify-start">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          Sifat Akses <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="flex items-center h-[42px] px-2 bg-slate-50 border border-slate-200 rounded-xl">
+                          <label className="flex items-center gap-3 cursor-pointer group w-full">
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                {...register("isPublic")}
+                                className="sr-only peer"
+                              />
+                              <div className="w-10 h-6 bg-slate-200 rounded-full peer-checked:bg-amber-400 transition-colors border border-slate-300 peer-checked:border-amber-600 shadow-inner"></div>
+                              <div className="absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full peer-checked:translate-x-4 transition-all shadow-sm"></div>
+                            </div>
+                            <span className={`text-[11px] font-bold transition-colors ${watch("isPublic") ? "text-amber-700" : "text-slate-500"}`}>
+                              {watch("isPublic") ? "🔓 Terbuka untuk Tamu / Publik" : "🔒 Khusus Internal (Wajib Login)"}
+                            </span>
+                          </label>
+                        </div>
+                     </div>
                   </div>
                 </div>
 

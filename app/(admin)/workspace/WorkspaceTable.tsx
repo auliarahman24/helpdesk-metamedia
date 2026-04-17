@@ -12,6 +12,26 @@ function formatTanggal(iso: string) {
   });
 }
 
+function getContactLink(contact: string) {
+  const clean = contact.trim();
+  if (clean.includes("@")) return `mailto:${clean}`;
+  // Basic WA logic: 08xx or +62xx or 62xx
+  let phone = clean.replace(/[^0-9+]/g, "");
+  if (phone.startsWith("08")) phone = "628" + phone.slice(2);
+  if (phone.startsWith("+")) phone = phone.slice(1);
+  if (phone.startsWith("62")) return `https://wa.me/${phone}`;
+  return null;
+}
+
+function ReporterAvatar({ name }: { name: string }) {
+  const initial = name.charAt(0).toUpperCase() || "?";
+  return (
+    <div className="w-8 h-8 rounded-full bg-campus-primary/10 border border-campus-primary/20 flex items-center justify-center text-campus-primary font-bold text-xs shrink-0">
+      {initial}
+    </div>
+  );
+}
+
 function PrioritasBadge({ prioritas }: { prioritas: string }) {
   const cls: Record<string, string> = {
     "Rendah": "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -149,17 +169,22 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama, adm
                       </p>
                     </td>
                     <td className="px-6 py-4">
-                      {ticket.isGuest ? (
+                      <div className="flex items-center gap-3">
+                        <ReporterAvatar name={ticket.isGuest ? (ticket.guestName || "T") : (ticket.mahasiswaNama || "M")} />
                         <div>
-                          <p className="text-sm font-semibold text-slate-800">{ticket.guestName || "Tamu"}</p>
-                          <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-200">Tamu Publik</span>
+                          <p className="text-sm font-semibold text-slate-800">
+                            {ticket.isGuest ? (ticket.guestName || "Tamu") : (ticket.mahasiswaNama || "Mahasiswa")}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-slate-400 font-mono italic">
+                              {ticket.isGuest ? "Internal Guest" : ticket.mahasiswaId}
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded-[4px] text-[8px] font-bold uppercase tracking-widest border shadow-sm ${ticket.isGuest ? "bg-amber-50 text-amber-600 border-amber-200" : "bg-blue-50 text-blue-600 border-blue-200"}`}>
+                              {ticket.isGuest ? "Tamu" : "Mahasiswa"}
+                            </span>
+                          </div>
                         </div>
-                      ) : (
-                        <div>
-                          <p className="text-sm font-semibold text-slate-800">{ticket.mahasiswaNama || "—"}</p>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{ticket.mahasiswaId}</p>
-                        </div>
-                      )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-xs font-medium text-slate-600">
@@ -241,6 +266,72 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama, adm
                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 border-l-4 border-campus-primary pl-3">
                   Detail Pengajuan
                 </h3>
+                
+                {/* Reporter Profile Card */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-xl text-slate-400 font-bold">
+                        {(selectedTicket.isGuest ? selectedTicket.guestName : selectedTicket.mahasiswaNama)?.charAt(0).toUpperCase() || "?"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900 leading-tight">
+                          {selectedTicket.isGuest ? (selectedTicket.guestName || "Tamu Tanpa Nama") : (selectedTicket.mahasiswaNama || "Mahasiswa")}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm ${selectedTicket.isGuest ? "bg-amber-50 text-amber-600 border-amber-200" : "bg-blue-50 text-blue-600 border-blue-200"}`}>
+                            {selectedTicket.isGuest ? "Tamu Publik" : "Mahasiswa"}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono tracking-tighter">
+                            {selectedTicket.isGuest ? "Internal Tracking ID" : selectedTicket.mahasiswaId}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedTicket.isGuest && selectedTicket.guestContact && (
+                      <div className="flex items-center gap-2">
+                        {getContactLink(selectedTicket.guestContact) && (
+                          <a
+                            href={getContactLink(selectedTicket.guestContact)!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`p-2.5 rounded-xl border transition-all duration-200 shadow-sm ${
+                              selectedTicket.guestContact.includes("@")
+                                ? "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                                : "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100"
+                            }`}
+                            title={selectedTicket.guestContact.includes("@") ? "Kirim Email" : "Chat WhatsApp"}
+                          >
+                            {selectedTicket.guestContact.includes("@") ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="currentColor" viewBox="0 0 448 512">
+                                <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.7 17.7 69.3 27 106.1 27 122.4 0 222-99.6 222-222 0-59.3-23-115.1-65-157.1zM223.9 446.3c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 365.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 54 81.2 54.1 130.5 0 101.7-82.8 184.6-184.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-5.6-2.8-23.6-8.7-45-27.7-16.6-14.8-27.8-33.1-31.1-38.6-3.2-5.6-.3-8.5 2.5-11.3 2.5-2.5 5.5-6.5 8.3-9.8 2.8-3.3 3.7-5.6 5.6-9.3s.9-6.9-.5-9.7c-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2s-9.7 1.4-14.8 6.9c-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 13.2 5.7 23.5 9.2 31.6 11.8 13.3 4.2 25.4 3.6 35 2.2 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/>
+                              </svg>
+                            )}
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Waktu Masuk</p>
+                      <p className="text-xs text-slate-700 font-semibold">{formatTanggal(selectedTicket.waktuMasuk)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Kontak Pelapor</p>
+                      <p className="text-xs text-slate-700 font-semibold truncate">
+                        {selectedTicket.isGuest ? (selectedTicket.guestContact || "—") : selectedTicket.mahasiswaId}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="bg-slate-50/50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
                   <div>
                     <p className="text-slate-900 font-bold text-lg">{selectedTicket.namaLayanan || selectedTicket.departmentId}</p>
@@ -248,10 +339,8 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama, adm
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-xs border-t border-slate-200 pt-4">
                     {[
-                      { label: "Identitas Pelapor", val: selectedTicket.isGuest ? `Tamu Publik — ${selectedTicket.guestName} (${selectedTicket.guestContact})` : selectedTicket.mahasiswaId },
                       { label: "Prioritas",       val: <PrioritasBadge prioritas={selectedTicket.prioritas || "Sedang"} /> },
                       { label: "Status Saat Ini", val: <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getTicketStatusColor(selectedTicket.statusTerkini)}`}>{selectedTicket.statusTerkini}</span> },
-                      { label: "Waktu Masuk",     val: formatTanggal(selectedTicket.waktuMasuk) },
                       { label: "Departemen",      val: selectedTicket.departmentId || "—" },
                     ].map(({ label, val }) => (
                       <div key={label} className="bg-white rounded-xl px-4 py-3 border border-slate-200 shadow-sm">

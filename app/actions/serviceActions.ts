@@ -28,6 +28,7 @@ const CreateServiceSchema = z.object({
   namaLayanan: z.string().min(1, "Nama layanan wajib diisi"),
   departmentId: z.string().min(1, "Department ID wajib diisi"),
   isPublic: z.boolean().default(false),
+  publishToTransparencyBoard: z.boolean().default(true),
   defaultPrioritas: z.enum(["Rendah", "Sedang", "Tinggi", "Kritis"]).default("Sedang"),
   formBuilder: z.array(FormFieldSchema).default([]),
 });
@@ -44,6 +45,7 @@ export interface ServiceRow {
   defaultPrioritas: "Rendah" | "Sedang" | "Tinggi" | "Kritis";
   isActive: boolean;
   isPublic: boolean;
+  publishToTransparencyBoard: boolean;
   formBuilderCount: number;
   formBuilder: Array<{
     id: string;
@@ -70,6 +72,7 @@ export async function getAllServices(): Promise<ServiceRow[]> {
     defaultPrioritas: (s.defaultPrioritas as "Rendah" | "Sedang" | "Tinggi" | "Kritis") || "Sedang",
     isActive: s.isActive,
     isPublic: s.isPublic || false,
+    publishToTransparencyBoard: s.publishToTransparencyBoard !== false, // default true
     formBuilderCount: s.formBuilder?.length || 0,
     formBuilder: (s.formBuilder || []).map((f) => ({
       id: f.id,
@@ -119,6 +122,7 @@ export async function createService(data: CreateServiceInput) {
       defaultPrioritas: parsed.data.defaultPrioritas,
       isActive: true,
       isPublic: parsed.data.isPublic,
+      publishToTransparencyBoard: parsed.data.publishToTransparencyBoard,
       formBuilder: parsed.data.formBuilder.map((f) => ({
         id: f.id,
         label: f.label,
@@ -201,6 +205,7 @@ export async function updateService(serviceId: string, data: CreateServiceInput)
     service.departmentId = parsed.data.departmentId;
     service.defaultPrioritas = parsed.data.defaultPrioritas;
     service.isPublic = parsed.data.isPublic;
+    service.publishToTransparencyBoard = parsed.data.publishToTransparencyBoard;
     service.formBuilder = parsed.data.formBuilder.map((f) => ({
       id: f.id,
       label: f.label,
@@ -253,7 +258,7 @@ export async function softDeleteService(serviceId: string) {
 
     return {
       success: true,
-      message: `Layanann "${service.namaLayanan}" berhasil dihapus. Tiket lama tidak terpengaruh.`,
+      message: `Layanan "${service.namaLayanan}" berhasil dihapus. Tiket lama tidak terpengaruh.`,
     };
   } catch (error) {
     console.error("Soft delete service error:", error);
