@@ -66,6 +66,7 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama, adm
   const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(null);
   const [statusBaru, setStatusBaru]     = useState("Diproses");
   const [catatan, setCatatan]           = useState("");
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [isPending, startTransition]    = useTransition();
   const [result, setResult]             = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [claimingId, setClaimingId]     = useState<string | null>(null);
@@ -137,100 +138,110 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama, adm
     <>
       {/* ═══════ TABEL ═══════ */}
       {tickets.length === 0 ? (
-        <div className="card-light p-12 text-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" />
-          </svg>
-          <p className="text-slate-500 text-sm">Belum ada pengajuan masuk untuk departemen ini.</p>
+        <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/50">
+           <div className="flex flex-col items-center gap-3 opacity-40">
+              <span className="text-5xl text-slate-300">📭</span>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Belum ada pengajuan masuk</p>
+           </div>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Pengajuan</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">PELAPOR</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">WAKTU MASUK</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Prioritas</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status Saat Ini</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {tickets.map((ticket) => (
-                  <tr key={ticket._id} className="hover:bg-slate-50/60 transition-colors group">
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-semibold text-slate-900 truncate max-w-[220px] group-hover:text-campus-primary transition-colors">
-                        {ticket.namaLayanan || ticket.departmentId}
-                      </p>
-                      <p className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded text-slate-600 font-mono text-[10px] font-bold tracking-wider border border-slate-200 bg-slate-100">
-                        {ticket.ticketId || ticket._id.slice(-8).toUpperCase()}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <ReporterAvatar name={ticket.isGuest ? (ticket.guestName || "T") : (ticket.mahasiswaNama || "M")} />
-                        <div>
-                          <p className="text-sm font-semibold text-slate-800">
-                            {ticket.isGuest ? (ticket.guestName || "Tamu") : (ticket.mahasiswaNama || "Mahasiswa")}
-                          </p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[10px] text-slate-400 font-mono italic">
-                              {ticket.isGuest ? "Internal Guest" : ticket.mahasiswaId}
-                            </span>
-                            <span className={`px-1.5 py-0.5 rounded-[4px] text-[8px] font-bold uppercase tracking-widest border shadow-sm ${ticket.isGuest ? "bg-amber-50 text-amber-600 border-amber-200" : "bg-blue-50 text-blue-600 border-blue-200"}`}>
-                              {ticket.isGuest ? "Tamu" : "Mahasiswa"}
-                            </span>
-                          </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-separate border-spacing-y-2">
+            <thead>
+              <tr className="text-slate-500">
+                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.15em]">Pengajuan</th>
+                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.15em]">Pelapor</th>
+                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.15em]">Waktu Masuk</th>
+                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.15em]">Prioritas</th>
+                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.15em]">Status</th>
+                <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.15em] text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tickets.map((ticket) => (
+                <tr key={ticket._id} className="group bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-100 hover:shadow-lg hover:shadow-slate-200/40 transition-all rounded-2xl">
+                  <td className="px-4 py-5 rounded-l-2xl">
+                    <p className="text-sm font-black text-slate-800 leading-tight group-hover:text-campus-primary transition-colors truncate max-w-[220px]">
+                      {ticket.namaLayanan || ticket.departmentId}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 group-hover:text-slate-500 transition-colors">
+                      {ticket.ticketId || ticket._id.slice(-8).toUpperCase()}
+                    </p>
+                  </td>
+                  <td className="px-4 py-5">
+                    <div className="flex items-center gap-3">
+                      <ReporterAvatar name={ticket.isGuest ? (ticket.guestName || "T") : (ticket.mahasiswaNama || "M")} />
+                      <div>
+                        <p className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                          {ticket.isGuest ? (ticket.guestName || "Tamu") : (ticket.mahasiswaNama || "Mahasiswa")}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`px-1.5 py-0.5 rounded-[4px] text-[8px] font-black uppercase tracking-widest border ${ticket.isGuest ? "bg-amber-50 text-amber-600 border-amber-200" : "bg-blue-50 text-blue-600 border-blue-200"}`}>
+                            {ticket.isGuest ? "Tamu" : "Siswa"}
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                            {ticket.isGuest ? "Internal" : ticket.mahasiswaId}
+                          </span>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-xs font-medium text-slate-600">
-                        {formatTanggal(ticket.waktuMasuk)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <PrioritasBadge prioritas={ticket.prioritas || "Sedang"} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center cursor-default px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide border ${getTicketStatusColor(ticket.statusTerkini)}`}>
+                    </div>
+                  </td>
+                  <td className="px-4 py-5">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-600 transition-colors">
+                      {formatTanggal(ticket.waktuMasuk)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-5">
+                    <PrioritasBadge prioritas={ticket.prioritas || "Sedang"} />
+                  </td>
+                  <td className="px-4 py-5">
+                    <div className="flex flex-col items-start gap-2">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border shadow-sm ${getTicketStatusColor(ticket.statusTerkini)}`}>
                         {ticket.statusTerkini}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <button
-                        onClick={() => handleManageTicket(ticket)}
-                        disabled={claimingId === ticket._id || !!(ticket.assigneeId && ticket.assigneeId !== adminNimNip)}
-                        className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl border shadow-sm transition-all duration-150 cursor-pointer disabled:opacity-50 ${
-                           ticket.assigneeId && ticket.assigneeId !== adminNimNip
-                           ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
-                           : "bg-campus-primary hover:bg-blue-700 text-white border-blue-600 hover:shadow-md"
-                        }`}
-                      >
-                        {claimingId === ticket._id ? (
-                           <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                           </svg>
-                        ) : ticket.assigneeId && ticket.assigneeId !== adminNimNip ? (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                             <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                      {ticket.assigneeId && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-200 rounded-md text-[9px] text-slate-500 font-bold uppercase tracking-wider shadow-sm" title={`Ditangani oleh ${ticket.assigneeId}`}>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-campus-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                           </svg>
-                        ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                          </svg>
-                        )}
-                        {claimingId === ticket._id ? "Proses..." : ticket.assigneeId && ticket.assigneeId !== adminNimNip ? "Terkunci" : "Kelola Laporan"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          <span className="truncate max-w-[80px]">
+                            {ticket.assigneeId === adminNimNip ? "Saya" : ticket.assigneeId}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-5 rounded-r-2xl text-right">
+                    <button
+                      onClick={() => handleManageTicket(ticket)}
+                      disabled={claimingId === ticket._id || !!(ticket.assigneeId && ticket.assigneeId !== adminNimNip)}
+                      className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm transition-all duration-200 cursor-pointer disabled:opacity-50 ${
+                         ticket.assigneeId && ticket.assigneeId !== adminNimNip
+                         ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                         : "bg-campus-dark hover:bg-slate-800 text-white hover:shadow-md hover:scale-105 active:scale-95"
+                      }`}
+                    >
+                      {claimingId === ticket._id ? (
+                         <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                         </svg>
+                      ) : ticket.assigneeId && ticket.assigneeId !== adminNimNip ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                        </svg>
+                      )}
+                      {claimingId === ticket._id ? "Proses..." : ticket.assigneeId && ticket.assigneeId !== adminNimNip ? "Terkunci" : "Tindak Lanjuti"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -263,9 +274,19 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama, adm
 
               {/* §1 Detail Laporan */}
               <div className="space-y-4">
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 border-l-4 border-campus-primary pl-3">
-                  Detail Pengajuan
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 border-l-4 border-campus-primary pl-3">
+                    Detail Pengajuan
+                  </h3>
+                  {selectedTicket.assigneeId && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg shadow-sm">
+                      <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                      <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                        Ditangani: <span className="text-slate-800">{selectedTicket.assigneeId === adminNimNip ? "Anda (Saya)" : selectedTicket.assigneeId}</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
                 
                 {/* Reporter Profile Card */}
                 <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
@@ -363,8 +384,17 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama, adm
                               <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">{field.label}</span>
                               {field.type === "file" && typeof value === "string" ? (
                                 value.match(/\.(jpg|jpeg|png|gif|webp)$/i)
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  ? <img src={value} alt={field.label} className="mt-2 max-w-[200px] rounded-xl border border-slate-200 object-cover shadow-sm" />
+                                  ? (
+                                    <div className="relative mt-2 max-w-[200px] aspect-video rounded-xl overflow-hidden border border-slate-200 shadow-sm group/img cursor-zoom-in" onClick={() => setLightboxUrl(String(value))}>
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={value} alt={field.label} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
+                                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
+                                        </svg>
+                                      </div>
+                                    </div>
+                                  )
                                   : <a href={value} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-campus-primary/10 text-campus-primary rounded-lg font-bold hover:bg-campus-primary/20 transition-colors">Lihat Dokumen <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg></a>
                               ) : (
                                 <span className="text-slate-800 font-bold mt-1 block leading-relaxed">{String(value)}</span>
@@ -494,6 +524,32 @@ export default function WorkspaceTable({ tickets: initialTickets, adminNama, adm
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== IMAGE LIGHTBOX ========== */}
+      {lightboxUrl && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 animate-in fade-in duration-300"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <div className="relative max-w-5xl w-full h-full flex items-center justify-center">
+             <button
+              onClick={() => setLightboxUrl(null)}
+              className="absolute top-4 right-4 w-12 h-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all border border-white/20 z-10 cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src={lightboxUrl} 
+              alt="Preview" 
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         </div>
       )}

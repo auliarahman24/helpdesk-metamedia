@@ -70,20 +70,21 @@ function PrioritasBadge({ prioritas, className }: { prioritas: string, className
 
 // ─── Props ───────────────────────────────────────────────────
 interface DeptOption { id: string; nama: string; }
+interface Stats { total: number; selesai: number; menunggu: number; kritis: number; }
 interface Props {
   tickets:      TicketRow[];
+  stats:        Stats;
   departments:  DeptOption[];
   activeQ:      string;
   activeDept:   string;
   activeStatus: string;
   activePrioritas?: string;
-  totalAll:     number;
 }
 
 // ═══════════════════════════════════════════════════════════
 // FILTER BAR subcomponent
 // ═══════════════════════════════════════════════════════════
-function FilterBar({ departments, activeQ, activeDept, activeStatus, activePrioritas }: Omit<Props, "tickets" | "totalAll">) {
+function FilterBar({ departments, activeQ, activeDept, activeStatus, activePrioritas }: Omit<Props, "tickets" | "stats">) {
   const router      = useRouter();
   const pathname    = usePathname();
   const params      = useSearchParams();
@@ -228,7 +229,7 @@ function FilterBar({ departments, activeQ, activeDept, activeStatus, activePrior
 // MAIN CLIENT COMPONENT
 // ═══════════════════════════════════════════════════════════
 export default function MonitoringClient({
-  tickets, departments, activeQ, activeDept, activeStatus, activePrioritas, totalAll,
+  tickets, stats, departments, activeQ, activeDept, activeStatus, activePrioritas,
 }: Props) {
   const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -269,17 +270,44 @@ export default function MonitoringClient({
             <p className="text-xs sm:text-sm text-slate-500">Daftar lengkap seluruh tiket dari semua departemen (Read-Only).</p>
           </div>
         </div>
-        {/* Counter */}
-        <div className="flex items-center">
-          <div className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-            </svg>
-            <div className="text-xs sm:text-sm font-medium">
-              <span className="text-slate-900 text-base">{tickets.length}</span>
-              {hasActiveFilter && <span className="text-slate-400"> / {totalAll}</span>}
-              <span className="text-slate-500 ml-1">Tiket</span>
-            </div>
+      </div>
+
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+          <div>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total Tiket</p>
+            <h3 className="text-3xl font-black text-slate-800">{stats.total}</h3>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
+          </div>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+          <div>
+            <p className="text-xs font-black text-amber-500 uppercase tracking-widest mb-1">Diproses</p>
+            <h3 className="text-3xl font-black text-amber-600">{stats.menunggu}</h3>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+          <div>
+            <p className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-1">Selesai</p>
+            <h3 className="text-3xl font-black text-emerald-600">{stats.selesai}</h3>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+          <div>
+            <p className="text-xs font-black text-rose-500 uppercase tracking-widest mb-1">Prioritas Kritis</p>
+            <h3 className="text-3xl font-black text-rose-600">{stats.kritis}</h3>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center group-hover:animate-pulse transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
           </div>
         </div>
       </div>
@@ -369,12 +397,20 @@ export default function MonitoringClient({
                       <PrioritasBadge prioritas={ticket.prioritas || "Sedang"} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <span className={`inline-flex items-center cursor-default px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border shadow-sm ${getTicketStatusColor(ticket.statusTerkini)}`}>
+                      <div className="flex flex-col items-center gap-1.5">
+                        <span className={`inline-flex items-center cursor-default px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border shadow-sm ${getTicketStatusColor(ticket.statusTerkini)}`}>
                           {ticket.statusTerkini}
                         </span>
+                        {ticket.assigneeId && (
+                          <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-md text-[9px] text-slate-500 font-bold uppercase tracking-wider shadow-sm" title={`Ditangani oleh ${ticket.assigneeId}`}>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-campus-primary shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                            </svg>
+                            <span className="truncate max-w-[80px]">{ticket.assigneeId}</span>
+                          </div>
+                        )}
                         {(ticket as any).isForcePrivate && (
-                          <span className="px-2 py-0.5 inline-flex text-[9px] font-bold uppercase tracking-wider rounded bg-rose-50 text-rose-600 border border-rose-200">
+                          <span className="px-2 py-0.5 inline-flex text-[8px] font-black uppercase tracking-widest rounded-md bg-rose-50 text-rose-600 border border-rose-200 shadow-sm">
                             🌑 Hidden
                           </span>
                         )}
@@ -415,7 +451,15 @@ export default function MonitoringClient({
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900 tracking-tight">Detail Laporan</h2>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">Detail Laporan</h2>
+                    {selectedTicket.assigneeId && (
+                      <span className="px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                        Assignee: {selectedTicket.assigneeId}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-500 font-mono mt-0.5 tracking-widest bg-slate-100 px-2 py-0.5 rounded-md inline-block">
                     {selectedTicket.ticketId || selectedTicket._id}
                   </p>
@@ -450,6 +494,72 @@ export default function MonitoringClient({
                     <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border shadow-sm ${getTicketStatusColor(selectedTicket.statusTerkini)}`}>
                       {selectedTicket.statusTerkini}
                     </span>
+                  </div>
+
+                  {/* Identitas Pelapor */}
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl transition-all shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <ReporterAvatar 
+                          name={selectedTicket.isGuest ? (selectedTicket.guestName || "Tamu") : (selectedTicket.mahasiswaNama || "Mahasiswa")} 
+                          isGuest={!!selectedTicket.isGuest} 
+                        />
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 tracking-tight leading-none">
+                            {selectedTicket.isGuest ? (selectedTicket.guestName || "Tamu Tanpa Nama") : (selectedTicket.mahasiswaNama || "Mahasiswa")}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm ${selectedTicket.isGuest ? "bg-amber-50 text-amber-600 border-amber-200" : "bg-blue-50 text-blue-600 border-blue-200"}`}>
+                              {selectedTicket.isGuest ? "Tamu Publik" : "Mahasiswa"}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono tracking-tighter">
+                              {selectedTicket.isGuest ? "Internal Tracking ID" : selectedTicket.mahasiswaId}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {selectedTicket.isGuest && selectedTicket.guestContact && (
+                        <div className="flex items-center gap-2">
+                          {getContactLink(selectedTicket.guestContact) && (
+                            <a
+                              href={getContactLink(selectedTicket.guestContact)!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`p-2.5 rounded-xl border transition-all duration-200 shadow-sm ${
+                                selectedTicket.guestContact.includes("@")
+                                  ? "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                                  : "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100"
+                              }`}
+                              title={selectedTicket.guestContact.includes("@") ? "Kirim Email" : "Chat WhatsApp"}
+                            >
+                              {selectedTicket.guestContact.includes("@") ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                                </svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="currentColor" viewBox="0 0 448 512">
+                                  <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.7 17.7 69.3 27 106.1 27 122.4 0 222-99.6 222-222 0-59.3-23-115.1-65-157.1zM223.9 446.3c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 365.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 54 81.2 54.1 130.5 0 101.7-82.8 184.6-184.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-5.6-2.8-23.6-8.7-45-27.7-16.6-14.8-27.8-33.1-38.6-3.2-5.6-.3-8.5 2.5-11.3 2.5-2.5 5.5-6.5 8.3-9.8 2.8-3.3 3.7-5.6 5.6-9.3s.9-6.9-.5-9.7c-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2s-9.7 1.4-14.8 6.9c-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 13.2 5.7 23.5 9.2 31.6 11.8 13.3 4.2 25.4 3.6 35 2.2 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/>
+                                </svg>
+                              )}
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-4 mt-4 border-t border-slate-200">
+                      <div>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Waktu Masuk</p>
+                        <p className="text-xs text-slate-700 font-semibold">{formatTanggal(selectedTicket.waktuMasuk)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Kontak Pelapor</p>
+                        <p className="text-xs text-slate-700 font-semibold truncate">
+                          {selectedTicket.isGuest ? (selectedTicket.guestContact || "—") : selectedTicket.mahasiswaId}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Force Private Override */}
@@ -587,7 +697,7 @@ export default function MonitoringClient({
               </svg>
             </button>
             <img 
-              src={lightboxUrl} 
+              src={lightboxUrl || undefined} 
               alt="Preview" 
               className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
               onClick={(e) => e.stopPropagation()}

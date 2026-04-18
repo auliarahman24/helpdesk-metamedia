@@ -37,7 +37,21 @@ export default async function MonitoringPage({
   const prioritas = (params.prioritas || "");
 
   // Ambil semua tiket dari DB (query sudah di ticketActions)
-  let tickets = await getAllTickets();
+  const allTickets = await getAllTickets();
+  
+  let tickets = [...allTickets];
+
+  // Departemen untuk dropdown filter (dari Master Data)
+  await dbConnect();
+  const departments = await Department.find({})
+    .select("departmentId namaDepartemen")
+    .sort({ namaDepartemen: 1 })
+    .lean();
+
+  const deptOptions = departments.map((d) => ({
+    id:   d.departmentId,
+    nama: d.namaDepartemen,
+  }));
 
   // ── Filter client-side (data sudah di memory — max beberapa ratus tiket) ──
   if (q) {
@@ -52,27 +66,23 @@ export default async function MonitoringPage({
   if (status) tickets = tickets.filter((t) => t.statusTerkini === status);
   if (prioritas) tickets = tickets.filter((t) => t.prioritas === prioritas);
 
-  // Departemen untuk dropdown filter (dari Master Data)
-  await dbConnect();
-  const departments = await Department.find({})
-    .select("departmentId namaDepartemen")
-    .sort({ namaDepartemen: 1 })
-    .lean();
-
-  const deptOptions = departments.map((d) => ({
-    id:   d.departmentId,
-    nama: d.namaDepartemen,
-  }));
+  // Hitung stats untuk KPI
+  const stats = {
+    total: allTickets.length,
+    selesai: allTickets.filter(t => t.statusTerkini === "Selesai" || t.statusTerkini === "Ditutup").length,
+    menunggu: allTickets.filter(t => t.statusTerkini === "Masuk" || t.statusTerkini === "Diproses").length,
+    kritis: allTickets.filter(t => t.prioritas === "Kritis" && !["Selesai", "Ditutup", "Dibatalkan", "Ditolak"].includes(t.statusTerkini)).length,
+  };
 
   return (
     <MonitoringClient
       tickets={tickets}
+      stats={stats}
       departments={deptOptions}
       activeQ={q}
       activeDept={dept}
       activeStatus={status}
       activePrioritas={prioritas}
-      totalAll={tickets.length}
     />
   );
 }

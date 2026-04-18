@@ -24,6 +24,7 @@ export default function TrackingClient({ ticket }: { ticket: TicketDetail }) {
   const [showComplaintForm, setShowComplaintForm] = useState(false);
   const [complaintNote, setComplaintNote] = useState("");
   const [apiError, setApiError] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // Status saat ini diambil dari field status langsung (arsitektur baru)
   const currentStatus = ticket.status || "Tidak diketahui";
@@ -169,8 +170,15 @@ export default function TrackingClient({ ticket }: { ticket: TicketDetail }) {
                         {/* Jika type file: tampilkan sebagai link/preview gambar */}
                         {type === "file" && typeof value === "string" ? (
                           value.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={value} alt={label} className="mt-1 max-w-[200px] rounded-lg border border-slate-200 object-cover shadow-sm bg-white p-1" />
+                            <div className="relative mt-1 max-w-[200px] aspect-video rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-white p-1 group/img cursor-zoom-in" onClick={() => setLightboxUrl(String(value))}>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={value} alt={label} className="w-full h-full object-cover rounded-md transition-transform duration-500 group-hover/img:scale-110" />
+                              <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center rounded-md pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
+                                </svg>
+                              </div>
+                            </div>
                           ) : (
                             <a href={value} target="_blank" rel="noopener noreferrer" className="mt-0.5 inline-flex text-sm text-campus-primary font-bold underline hover:text-blue-700">
                               Lihat Dokumen →
@@ -356,6 +364,32 @@ export default function TrackingClient({ ticket }: { ticket: TicketDetail }) {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== IMAGE LIGHTBOX ========== */}
+      {lightboxUrl && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 animate-in fade-in duration-300"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <div className="relative max-w-5xl w-full h-full flex items-center justify-center">
+             <button
+              onClick={() => setLightboxUrl(null)}
+              className="absolute top-4 right-4 w-12 h-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all border border-white/20 z-10 cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src={lightboxUrl} 
+              alt="Preview" 
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         </div>
       )}

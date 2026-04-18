@@ -308,7 +308,6 @@ export async function getTicketsByDepartment(
   await applyAutoCloseSLA();
 
   const tickets = await Ticket.find({ departmentId })
-    .select("-dynamicData -formSnapshot")  // ← optimasi: exclude field berat dari tabel
     .populate("serviceId", "namaLayanan")  // join service name
     .sort({ createdAt: -1 })
     .lean();
